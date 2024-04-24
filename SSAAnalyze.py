@@ -6,24 +6,49 @@ import time
 
 
 def dir_get(mode):
-    m_dir = '\\'.join(os.getcwd().split('\\')[0:-1])
+    m_dir = os.getcwd()
     if mode == 'i':
         dir_bool = None
         while dir_bool not in (0, 1):
             for num, x in enumerate(os.listdir(m_dir)):
                 try:
-                    dir_bool = int(input(f'Use "{os.path.join(m_dir, x)}" ({num + 1}/{len(os.listdir(m_dir))}) as '
-                                         f'import directory? [0/1]: '))
+                    dir_bool = int(input(f'Use "~..\\{x}" ({num + 1}/{len(os.listdir(m_dir))}) as '
+                                         f'import directory? [(0)No/(1)Yes]: '))
                 except ValueError:
-                    pass
-                else:
-                    if bool(dir_bool) is True:
-                        i_path = os.path.join(m_dir, x)
-                        return i_path
+                    dir_bool = 0
+                if bool(dir_bool) is True:
+                    i_path = os.path.join(m_dir, x)
+                    return i_path
+    elif mode == 'r':
+        select_dir = {1: 'Desktop', 2: 'Documents', 3: 'Downloads', 4: 'Other'}
+        print('Please select where you would like the final data to be stored:')
+        for key, value in select_dir.items():
+            print(f'\t({key}) {value}')
+        user_dir_selection = input('Your selection? ')
+        print(user_dir_selection)
+        """
+        r_dir = os.path.join(m_dir, 'Results')
+        if not os.path.exists(r_dir):
+            try:
+                dir_bool = int(input(f'Create results directory at {r_dir}? [(1)Yes/(0)No]: '))
+            except ValueError:
+                dir_bool = 1
+            if bool(dir_bool) is True:
+                os.mkdir(r_dir)
+            else:
+                sys.exit('No results directory, exiting...')
+        return r_dir
     elif mode == 'g' or mode == 'r':
         e_dir = os.path.join(m_dir, 'Exports')
         if not os.path.exists(e_dir):
-            os.mkdir(e_dir)
+            try:
+                dir_bool = int(input(f'Create export directory at {e_dir}? [(1)Yes/(0)No]: '))
+            except ValueError:
+                dir_bool = 1
+            if bool(dir_bool) is True:
+                os.mkdir(e_dir)
+            else:
+                sys.exit('No export directory, exiting...')
         if mode == 'r':
             r_dir = os.path.join(e_dir, 'Results')
             if not os.path.exists(r_dir):
@@ -34,7 +59,7 @@ def dir_get(mode):
             if not os.path.exists(g_dir):
                 os.mkdir(g_dir)
         return g_dir
-
+    """
 
 def pandas(hidx, start=None, end=None, path=None, R_PATH=None, lbl=False, cols=None):
     """
@@ -121,9 +146,14 @@ def gather():
     it prints the message '{path} removed, no data'
     """
     i_dir = dir_get('i')                            # Import directory
+    print(i_dir)
     g_dir = dir_get('g')                            # Gather directory
+    print(g_dir)
     r_dir = dir_get('r')                            # Results directory
+    print(r_dir)
     s_time = time.time()                            # Start time
+    print(s_time)
+    """
     for num0, analysis in enumerate(os.listdir(i_dir)):
         a_start = time.time()
         print(f'Gathering {analysis} data...')
@@ -231,6 +261,7 @@ def gather():
             analyze(r_name=r_name, r_path=r_path, g_path=g_path)
         print(f'Finished {analysis} processing in {time.time() - a_start:.1f} seconds\n')
     print(f'Total time: {time.time() - s_time:.1f} seconds!')
+"""
 
 
 if __name__ == '__main__':
