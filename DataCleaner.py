@@ -6,7 +6,7 @@ import pandas as pd
 import time
 
 
-def pandas(hidx, start=None, end=None, path=None, R_PATH=None, lbl=False, cols=None):
+def export_data(hidx, start=None, end=None, path=None, R_PATH=None, lbl=False, cols=None):
     """
     The pandas function puts finished files into the results directory, go there after finishing with the data
     The pandas function takes one parameter that are used to objectify the data, it finds the header row by using the
@@ -20,7 +20,7 @@ def pandas(hidx, start=None, end=None, path=None, R_PATH=None, lbl=False, cols=N
     pass
 
 
-def analyze(r_name=None, r_path=None, g_path=None):  # ex: Desktop\SSAProject\Gather\Raw\R_Aurora.csv
+def clean_data(r_name=None, r_path=None, g_path=None):  # ex: Desktop\SSAProject\Gather\Raw\R_Aurora.csv
     """
     The analyze function should grab (at this point in the function) the name of the marker, start row for marker,
     and end row for marker
@@ -30,28 +30,14 @@ def analyze(r_name=None, r_path=None, g_path=None):  # ex: Desktop\SSAProject\Ga
     pass
 
 
-def gather():
-    """
-    The gather function requires two parameters, m_dir (the directory that holds all data, python, etc.)
-    <--[Probably not the most secure way to do it lol]
-    the other variable is mod, a variable with either "Test" or "Data" depending on whether you are (me) testing the
-    program or actually using the full program, (Kellie)
+def gather_data(m_dir, mod=None):
+    pass
 
-    The gather function structures a report inside the Results directory as such:
-    HEADER: -->
-    Path=participant path that is used to open in pandas
-    SONA=their ID to mark in the result spreadsheet
-    Age=how old they are
-    Gender=their gender (MALE or FEMALE)
-    Start_Row=row index that headers are found on
-    [datapoint]=row index the [datapoint] data starts on
-    [datapoint]_end=row index the [datapoint] ends on
-    BODY: Rows of participants that contain data responding to the header columns
 
-    Patch 1: now code looks for IndexErrors and removes participants who have no data; when code does remove a file,
-    it prints the message '{path} removed, no data'
+def prep_data():
     """
-    # New code but testing copilot code to simplify the process
+    The prep_data function is used to gather the import directory and the export directory
+    """
     m_dir = os.getcwd()
     f_user_bool = None
     while f_user_bool not in (0, 1):
@@ -103,9 +89,10 @@ def gather():
                     shutil.copy(source, destination)
 
                 print(f'\nResults Directory: {m_export_dir}')
-                return f_import_dir, f_results_dir, f_gather_dir
+                return m_export_dir
         return sys.exit('No import directory, exiting...')
 
 
 if __name__ == '__main__':
-    gather()
+    export_dir = prep_data()
+    gather(export_dir)
