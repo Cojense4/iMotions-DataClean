@@ -95,4 +95,4 @@ def prep_data():
 
 if __name__ == '__main__':
     export_dir = prep_data()
-    gather(export_dir)
+    gather_data(export_dir)

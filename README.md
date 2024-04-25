@@ -1,29 +1,68 @@
 # iMotions Data Cleaner
-A brief description of what this project does and who it's for.
+## Description
+This project is designed to clean iMotions data for further analysis. It's primarily intended for data scientists and researchers who work with iMotions data.
+
+
+## Features
+* prep_data(), stores data in outside directory and creates directories for exports
+* clean_data(), preliminarily looks at data and stores keys to data points for cleaning process 
+* export_data(), exports cleaned/processed data to export folder 
 
 ## Installation
-### Requirements:
-Make sure you have all the required packages installed. You can install them by running the following command:<br>
+### Prerequisites
+Before you begin, ensure you have met the following requirements:
+* You have python version >= 3.8 
+
+### Installing iMotion Data Cleaner
+To install iMotions Data Cleaner, follow these steps:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Cojense4/iMotions-DataCleaner.git
+```
+
+2. Navigate to the project directory:
+```bash
+cd iMotions-DataCleaner
+```
+
+3. Create a virtual environment:
+```bash
+python -m venv ./venv
+```
+
+4. Activate the virtual environment:
+```bash
+# Windows
+./venv/Scripts/activate
+
+# Unix or MacOS
+source venv/bin/activate
+```
+
+#### Check venv installation:
+to see the files located inside of the virtual environment use the folllowing command:
+```bash 
+dir ./venv
+```
+5. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
-### Data:
-Make sure you have the data in the correct format. The data should be stored in a folder .csv file with the following columns:<br>
 
 ## Usage
-Instructions on how to use the project, for example:<br>
+### Data Prepping
+Make sure you have your data stored in a folder titled "Imports" at the root<br>
+```bash
+mkdir Imports && cd Imports
+```
+Your data should be split into folders by sensors, and have each participant should be an individual .csv file
 ```bash
 python DataCleaner.py
-```
-
-## Features
-&ensp;List of features ready and TODOs for future development.  
-
-## Contributing
-&ensp;Contributions are always welcome! See contributing.md for ways to get started.  
+```  
 
 ## License
 *I will provide the code and data in the repository under an open source license.*<br>
-&emsp;Copyright 2024, Connor Jensen<br>
-&emsp;Creative Commons Attribution 4.0 International License (CC BY 4.0)<br>
-&emsp;http://creativecommons.org/licenses/by/4.0/
+>Copyright 2024, Connor Jensen<br>
+>Creative Commons Attribution 4.0 International License (CC BY 4.0)<br>
+>http://creativecommons.org/licenses/by/4.0/
