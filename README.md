@@ -54,7 +54,7 @@ pip install -r requirements.txt
 ### Data Prepping
 Make sure you have your data stored in a folder titled "Imports" at the root<br>
 ```bash
-mkdir Imports && cd Imports
+mkdir test_data && cd test_data
 ```
 Your data should be split into folders by sensors, and have each participant should be an individual .csv file
 ```bash
