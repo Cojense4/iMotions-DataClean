@@ -31,6 +31,7 @@ def prep_data():
                 f_user_bool = 0
             if bool(f_user_bool) is True:
                 f_import_dir = os.path.join(m_dir, x)
+                print(f_import_dir)
                 p_dir_dict = {0: 'Desktop', 1: 'Documents', 2: 'Downloads', 3: 'Other'}
                 print('Please select where you would like the results to be stored:')
                 for key, value in p_dir_dict.items():
@@ -48,29 +49,22 @@ def prep_data():
                 else:
                     f_user_dir = input('Enter directory to use for results: ')
                     f_user_dir = os.path.join(os.path.expanduser("~"), f_user_dir)
-                    if not os.path.exists(f_user_dir):
-                        os.mkdir(f_user_dir)
-                print(f_user_dir)
+                if not os.path.exists(f_user_dir):
+                    os.mkdir(f_user_dir)
                 m_export_dir = os.path.join(f_user_dir, 'iMotionsData')
-                if not os.path.exists(m_export_dir):
-                    os.mkdir(m_export_dir)
+                if os.path.exists(m_export_dir):
+                    shutil.rmtree(m_export_dir)
+                os.mkdir(m_export_dir)
                 f_results_dir = os.path.join(m_export_dir, 'Results')
-                if not os.path.exists(f_results_dir):
-                    os.mkdir(f_results_dir)
+                os.mkdir(f_results_dir)
                 f_gather_dir = os.path.join(m_export_dir, 'Gather')
-                if not os.path.exists(f_gather_dir):
-                    os.mkdir(f_gather_dir)
+                os.mkdir(f_gather_dir)
                 f_copy_import_dir = os.path.join(m_export_dir, 'test_data')
-                if os.path.exists(f_copy_import_dir):
-                    shutil.rmtree(f_copy_import_dir)
-                else:
-                    os.mkdir(f_copy_import_dir)
                 shutil.copytree(f_import_dir, f_copy_import_dir)
 
                 print(f'\nResults Directory: {m_export_dir}')
                 return m_export_dir
-        return sys.exit('No import directory, exiting...')
-
+    return sys.exit('No import directory, exiting...')
 
 if __name__ == '__main__':
     export_dir = prep_data()
