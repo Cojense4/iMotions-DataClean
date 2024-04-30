@@ -25,7 +25,7 @@ def gather_data(dir_dict, mod=None):
     Gather and process data from different sensors.
 
     Args:
-        dir_dict (dict): A dictionary containing the data directory path.
+        dir_dict (dict): A dictionary containing the data sensor path.
         mod (str, optional): A modifier for the data gathering process.
 
     Returns:
@@ -35,39 +35,32 @@ def gather_data(dir_dict, mod=None):
         SystemExit: If a sensor is not recognized.
 
     """
-    data_dir = dir_dict['data']
-    for directory in recognized_sensors.keys():
-        sensor_dir = data_dir / directory
-        if sensor_dir.exists():
-            print(f'Processing {directory} data...')
-            for file_name in os.listdir(data_dir):
-                if file_name.endswith('.csv'):
-                    file_path = os.path.join(data_dir, file_name)
-                    
+    for sensor in os.listdir(dir_dict['data']):
+        print(f'Processing {sensor} data...')
+        gather_sensor_dir = os.path.join(dir_dict['gather'], sensor)
+        create_directory(gather_sensor_dir)
+        sensor_dir = os.path.join(dir_dict['data'], sensor)
+        for sensor_file in os.listdir(sensor_dir):
+            if sensor_file.endswith('.csv'):
+                    source_file_path = os.path.join(sensor_dir, sensor_file)
+                        
                     # Determine the number of header rows
-                    header_rows = count_header_rows(file_path)
-                    
+                    header_rows = count_header_rows(source_file_path)
+                        
                     # Process the header
-                    df_header = process_header(file_path, header_rows)
-                    
+                    df_header = process_header(source_file_path, header_rows)
+                        
                     # Process the body
-                    df_body = process_body(file_path, header_rows, df_header.columns.tolist())
-                    
-                    # Save the processed data
-                    df_header.to_csv('header.csv', index=False, header=False)
-                    df_body.to_csv('body.csv', index=False, header=True)
-                    
+                    df_body = process_body(source_file_path, header_rows, df_header.columns.tolist())
 
-                    name = file_name.stem.split('_')[-1]
-                    head_name = f"header_{name}.csv"
-                    body_name = f"body_{name}.csv"
-                    print(head_name, body_name)
-                    return
-                    df_header.to_csv(head_name, index=False, header=False)
-                    df_body.to_csv(body_name, index=False, header=True)
+                    # Save the processed data
+                    name = sensor_file.split('_')[-1][:-4]
+                    dest_file_path = os.path.join(gather_sensor_dir, name)
+                    create_directory(dest_file_path)    
+                    df_header.to_csv(f'{os.path.join(dest_file_path, 'header.csv')}', index=False, header=False)
+                    df_body.to_csv(f'{os.path.join(dest_file_path, 'body.csv')}', index=False, header=True)
                     break
-        else:
-            print(f'Warning: {directory} data not found')
+                
 
 
 def count_header_rows(file_path):
@@ -98,6 +91,7 @@ def process_header(file_path, header_rows):
 
     # Process the input
     columns_to_keep = process_input(columns_to_keep)
+    columns_to_keep = [df_header.columns[i-1] for i in columns_to_keep]
 
     # Drop the unselected columns
     df_header = df_header[columns_to_keep]
@@ -112,6 +106,7 @@ def process_body(file_path, header_rows, column_headers):
 
     # Process the input
     columns_to_keep = process_input(columns_to_keep)
+    columns_to_keep = [df_body.columns[i-1] for i in columns_to_keep]
 
     # Drop the unselected columns
     df_body = df_body[columns_to_keep]
@@ -126,17 +121,30 @@ def process_input(user_input):
 
 
 def create_directory(path):
-    """Creates a directory if it does not exist."""
-    if not path.exists():
-        path.mkdir()
+    """Recursively creates a directory if it does not exist."""
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except OSError as e:
+            if len(path.split(os.sep)) > 2:
+                response = input(f"The path '{path}' does not exist. Do you want to create it? [(0)No/(1)Yes]: ")
+                if response == '1':
+                    create_directory(os.path.dirname(path))
+                    create_directory(path)
+                else:
+                    sys.exit('Directory creation cancelled.')
+            else:
+                sys.exit(f"Failed to create directory: {e}")
 
-def rename_files(sensor_dir, sensor_type):
-    """Renames all files in a directory based on the sensor type."""
-    for file in sensor_dir.iterdir():
+def rename_files(sensor_dir, new_name):
+    """Renames a directory and all files in it based on the new name."""
+    new_dir = sensor_dir.parent / new_name
+    sensor_dir.rename(new_dir)
+    for file in new_dir.iterdir():
         name, ext = file.stem, file.suffix
         name = name.split('_')[-1]
-        new_name = f"{sensor_type}_{name}{ext}"
-        file.rename(sensor_dir / new_name)
+        new_file_name = f"{new_name}_{name}{ext}"
+        file.rename(new_dir / new_file_name)
 
 def prep_data():
     """
@@ -157,7 +165,6 @@ def prep_data():
             user_dir = int(input(f'Use "{directory}" ({i}/{len(directories)}) as import directory? [(0)No/(1)Yes]: '))
             if user_dir:
                 import_dir = directory
-                print(import_dir)
                 user_dir = Path.home() / {0: 'Desktop', 1: 'Documents', 2: 'Downloads'}.get(int(input('Please select where you would like the results to be stored:\n\t(0) Desktop\n\t(1) Documents\n\t(2) Downloads\nPlease select where you would like the results to be stored: ')))
                 create_directory(user_dir)
                 export_dir = user_dir / 'iMotionsData'
@@ -166,17 +173,16 @@ def prep_data():
                 create_directory(export_dir)
                 create_directory(export_dir / 'Results')
                 create_directory(export_dir / 'Gather')
-                shutil.copytree(import_dir, export_dir / 'test_data')
+                shutil.copytree(import_dir, export_dir / 'Data')
 
                 print(f'\nResults Directory: {export_dir}')
-                dir_dict = {'results': export_dir / 'Results', 'gather': export_dir / 'Gather', 'data': export_dir / 'test_data'}
+                dir_dict = {'exports': export_dir, 'results': export_dir / 'Results', 'gather': export_dir / 'Gather', 'data': export_dir / 'Data'}
 
                 sensor_list = [x for x in dir_dict['data'].iterdir() if x.is_dir()]
 
                 for sensor in sensor_list:
                     for sensor_type, sensor_names in recognized_sensors.items():
                         if any(sensor_name in sensor.name for sensor_name in sensor_names):
-                            print(f"({sensor.name}) is associated with ({sensor_type})")
                             rename_files(sensor, sensor_type)
                             break
                     else:
