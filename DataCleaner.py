@@ -39,7 +39,7 @@ def prep_data():
         directories = [d for d in Path.cwd().iterdir() if d.is_dir() and not d.name.startswith('.')]
         for i, directory in enumerate(directories, start=1):
             print(f"{i}. {directory}")
-        user_choice = input("Please enter the number of the import directory: ")
+        user_choice = input("Use Directory [number]: ")
         try:
             user_choice = int(user_choice)
             if 1 <= user_choice <= len(directories):
@@ -51,21 +51,20 @@ def prep_data():
     export_dir = None
     while not export_dir:
         print("Available export directories:")
-        print("0. Desktop")
-        print("1. Documents")
-        print("2. Downloads")
-        user_choice = input("Please enter the number of the export directory: ")
+        print(f'1. {Path.home() / "Desktop" / "iMotions_Exports"}')
+        print(f'2. {Path.home() / "Documents" / "iMotions_Exports"}')
+        print(f'3. {Path.home() / "Downloads" / "iMotions_Exports"}')
+        user_choice = input("Use Directory [number]: ")
         try:
             user_choice = int(user_choice)
-            if user_choice == 0:
-                export_dir = Path.home() / "Desktop"
-            elif user_choice == 1:
-                export_dir = Path.home() / "Documents"
+            if user_choice == 1:
+                export_dir = Path.home() / "Desktop" / "iMotions_Exports"
             elif user_choice == 2:
-                export_dir = Path.home() / "Downloads"
+                export_dir = Path.home() / "Documents" / "iMotions_Exports"
+            elif user_choice == 3:
+                export_dir = Path.home() / "Downloads" / "iMotions_Exports"
         except ValueError:
             pass
-    export_dir = export_dir / 'iMotions_Exports'
 
     dir_dict = {
         'export': export_dir,
