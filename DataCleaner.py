@@ -91,11 +91,12 @@ def prep_data():
             shutil.rmtree(dir_dict['data'])
             # Copy the data from the import directory to the export directory
             shutil.copytree(import_dir, dir_dict['data'])
-
+    user_sensors = []
     sensor_list = [x for x in dir_dict['data'].iterdir() if x.is_dir()]
     for sensor in sensor_list:
         for sensor_type, sensor_names in recognized_sensors.items():
             if any(sensor_name in sensor.name for sensor_name in sensor_names):
+                user_sensors.append(sensor_type)
                 new_dir = sensor.parent / sensor_type
                 sensor.rename(new_dir)
                 create_directory(dir_dict['gather']/ sensor_type)
@@ -109,7 +110,7 @@ def prep_data():
         else:
             sys.exit(f'Warning: ({sensor.name}) not recognized')
 
-    return dir_dict
+    return dir_dict, user_sensors
 
 
 def gather_data(dir_dict):
@@ -242,5 +243,5 @@ def clean_data(dir_dict):
     return None
 
 if __name__ == '__main__':
-    dir_dict = prep_data()
-    print(dir_dict['data'])
+    dir_dict, sensor_list = prep_data()
+    print(sensor_list)
