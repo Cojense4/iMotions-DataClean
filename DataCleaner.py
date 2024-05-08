@@ -113,51 +113,54 @@ def prep_data():
 
 
 def gather_data(dir_dict):
-    def create_directory(path):
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-
+    def header_end(f_path):
+        header_end_index = 19
+        # Check for end of header rows
+        header_end = pd.read_csv(file_path, nrows=1, skiprows=header_end_index).iloc[0,0]
+        while header_end != '#DATA':
+            if header_end_index > 40:
+                print("Error: Could not find the end of the header rows.")
+                break
+            header_end_index += 1
+            header_end = pd.read_csv(file_path, nrows=1, skiprows=header_end_index).iloc[0,0]
+            
+        # Skip the #DATA row and the column headers row
+        return header_end_index + 2
+    def column_chooser(columns):
+        print(columns)
+        # TODO: Implement column choosing   
+    # Go through each sensor directory
     for sensor in os.listdir(dir_dict['data']):
-        print(f'Processing {sensor} data...')
-        gather_sensor_dir = os.path.join(dir_dict['gather'], sensor)
         sensor_dir = os.path.join(dir_dict['data'], sensor)
-        columns_to_keep = None
-        prev_num_columns = 0
 
-        for sensor_file in os.listdir(sensor_dir):
-            if sensor_file.endswith('.csv'):
-                source_file_path = os.path.join(sensor_dir, sensor_file)
-                with open(source_file_path, 'r') as f:
-                    reader = csv.reader(f)
-                    for i, row in enumerate(reader, start=1):
-                        if row and row[0] == '#METADATA':
-                            meta_rows = i-2
-                        elif row and row[0] == '#DATA':
-                            header_rows = i
-                            break
-                df_head = pd.read_csv(source_file_path, nrows=meta_rows)
-                df_head.to_csv(f'{os.path.join(gather_sensor_dir, f'{sensor_file[:-4]}_header.csv')}', index=False, header=True)
-                df_body = pd.read_csv(source_file_path, skiprows=header_rows, header=0, low_memory=False)
+        # Go through each file in sensor directory
+        for file_name in os.listdir(sensor_dir):
+            file_path = os.path.join(sensor_dir, file_name)
+            header_end_index = header_end(file_path)
 
-                num_columns = len(df_body.columns)
+            df_headers = pd.read_csv(file_path, skiprows=header_end_index, header=0, nrows=0, low_memory=False).columns.tolist()
+            columns_to_keep = column_chooser(df_headers)
+            continue
 
-                if columns_to_keep is None or num_columns != prev_num_columns:
-                    print("Column headers:")
-                    for i, header in enumerate(df_body.columns.tolist(), 1):
-                        print(f"{i}. {header}")
-                        col_num = i
-                    user_input = input("Enter the numbers of the columns to keep, comma seperated, use dash for range: ")
-                    if user_input == '0':
-                        user_input = f'1-{col_num - 1}'
-                    user_input = user_input.split(",")
-                    user_input = [range(int(x.split("-")[0]), int(x.split("-")[1])+1) if "-" in x else int(x) for x in user_input]
-                    columns_to_keep = [item for sublist in user_input for item in sublist]  # Flatten the list
-                    prev_num_columns = num_columns
+            # Display the column headers
+            print("Here are the column headers:")
+            for i, col in enumerate(df.columns, 1):
+                print(f"{i}. {col}")
 
-                df_body = df_body[df_body.columns[columns_to_keep]]
-                df_body.to_csv(f'{os.path.join(gather_sensor_dir, f'{sensor_file[:-4]}_body.csv')}', index=False, header=True)
+            # Ask the user to select which columns to keep
+            user_input = input("Enter the numbers of the columns to keep, comma separated, use dash for range: ")
+
+            # Process the user input
+            user_input = user_input.split(",")
+            user_input = [range(int(x.split("-")[0]), int(x.split("-")[1])+1) if "-" in x else [int(x)] for x in user_input]
+            columns_to_keep = [item for sublist in user_input for item in sublist]  # Flatten the list
+
+            # Keep only the selected columns
+            df = df[df.columns[columns_to_keep]]
+
+            return df
                 #TODO: Finish this section of the code, should be finding a way to smartly detect which columns to keep based on the data
-
+                #TODO: Also need to add a way to keep the same columns for the next participant if they are the same sensor
 
 
 def clean_data(dir_dict):
