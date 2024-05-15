@@ -1,10 +1,8 @@
-import csv
 from pathlib import Path
 import os
 import sys
 import shutil
 import pandas as pd
-import time
 
 recognized_sensors = {
     'FACET': ['Camera', 'Emotient', 'FACET'],
@@ -14,13 +12,20 @@ recognized_sensors = {
 }
 
 sensor_stimuli = {
-    'FACET': ['SampleNumber', 'Timestamp RAW', 'Timestamp CAL', 'System Timestamp CAL', 'VSenseBatt RAW', 'VSenseBatt CAL', 'Internal ADC A13 PPG RAW', 'Internal ADC A13 PPG CAL', 
-              'GSR RAW' , 'GSR Resistance CAL', 'GSR Conductance CAL', 'Heart Rate PPG ALG', 'IBI PPG ALG', 'Packet reception rate RAW'],
-    'Shimmer': [],
-    'Aurora': [],
-    'PolarH10': [],
+    'FACET': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber', 'Timestamp RAW', 'Timestamp CAL', 'System Timestamp CAL', 'VSenseBatt RAW',
+              'VSenseBatt CAL', 'Internal ADC A13 PPG RAW', 'Internal ADC A13 PPG CAL', 'GSR RAW' , 'GSR Resistance CAL',
+              'GSR Conductance CAL', 'Heart Rate PPG ALG', 'IBI PPG ALG', 'Packet reception rate RAW'],
+    'Shimmer': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber','Timestamp RAW','Timestamp CAL','System Timestamp CAL','VSenseBatt RAW','VSenseBatt CAL',
+                'Internal ADC A13 PPG RAW','Internal ADC A13 PPG CAL','GSR RAW', 'GSR Resistance CAL',
+                'GSR Conductance CAL','Heart Rate PPG ALG','IBI PPG ALG','Packet reception rate RAW'],
+    'Aurora': ['Timestamp','SlideEvent','SourceStimuliName','ET_GazeLeftx','ET_GazeLefty','ET_GazeRightx','ET_GazeRighty','ET_PupilLeft','ET_PupilRight',
+               'ET_TimeSignal','ET_DistanceLeft','ET_DistanceRight','ET_CameraLeftX','ET_CameraLeftY','ET_CameraRightX',
+               'ET_CameraRightY','ET_Distance3D','ET_HeadRotationPitch','ET_HeadRotationYaw','ET_HeadRotationRoll',
+               'ET_GazeDirectionLeftQuality','ET_GazeDirectionRightQuality','ET_EyelidOpeningLeft',
+               'ET_EyelidOpeningLeftQuality','ET_EyelidOpeningRight','ET_EyelidOpeningRightQuality',
+               'ET_LeftPupilDiameterQuality','ET_RightPupilDiameterQuality'],
+    'PolarH10': ['Timestamp','SlideEvent','SourceStimuliName','Heart rate','R-R interval','Energy expended','Contact'],
 }
-#TODO: Finish adding sensor stimulus to the above dictionary for 'smart' recognition of rows to keep in future updates
 
 def prep_data():
     """
@@ -50,18 +55,23 @@ def prep_data():
 
     # Prompt the user to select the import directory
     while not import_dir:
-        print('-'*50)
-        print("Available IMPORT directories:")
         directories = [d for d in Path.cwd().iterdir() if d.is_dir() and not d.name.startswith('.')]
-        for i, directory in enumerate(directories, start=1):
-            print(f"{i-1}. {directory}")
-        user_choice = input("Use Directory [number]: ")
-        try:
-            user_choice = int(user_choice)
-            if 0 <= user_choice <= len(directories):
-                import_dir = directories[user_choice]
-        except ValueError:
-            continue
+        for directory in directories:
+            if directory.name.find('data') != -1:
+                import_dir = directory
+                break
+        if not import_dir:
+            print('-'*50)
+            print("Available IMPORT directories:")
+            for i, directory in enumerate(directories, start=1):
+                print(f"{i-1}. {directory}")
+            user_choice = input("Use Directory [number]: ")
+            try:
+                user_choice = int(user_choice)
+                if 0 <= user_choice <= len(directories):
+                    import_dir = directories[user_choice]
+            except ValueError:
+                continue
 
     # Prompt the user to select the export directory
     while not export_dir:
@@ -93,7 +103,10 @@ def prep_data():
         rm_prev = 0
     else:
         print('-'*50)
-        rm_prev = int(input("Do you want to delete the previous data? (0)YES/(1)NO: "))
+        try:
+            rm_prev = int(input("Do you want to delete the previous data? (0)YES/(1)NO: "))
+        except:
+            rm_prev = 0
     finally:
         if not rm_prev:
             if os.path.exists(dir_dict['export']):
@@ -147,23 +160,24 @@ def gather_data(dir_dict):
             
         # Skip the #DATA row and the column headers row
         return header_end_index + 2
-    def column_chooser(df_headers, sensor_name):
-        print(f'\n{'-'*25}{sensor_name.upper()} DATA{'-'*25}')
-        for i, header in enumerate(df_headers):
-            print(f'{i+1}. {header}')
-        e = 27
-        print('-'*50)
-        user_selection = input(f"Provide indecies to keep for '{sensor_name.upper()}' data (stimuli: [1-{e}]) (events: [{e+1}-{i+1}]): ").split(',')
-        if user_selection == ['0']:
-            user_selection = [item for item in range(1,e+1)]
-        else:
-            user_selection = [range(int(x.split("-")[0]), int(x.split("-")[1])+1) if "-" in x else [int(x)] for x in user_selection]
-            user_selection = sorted(set([item for sublist in user_selection for item in sublist]))  # Flatten the list
-        user_col_names = [df_headers[col - 1] for col in user_selection]
-        user_col_indexes = [col-1 for col in user_selection]
-        return user_col_names, user_col_indexes
-        #TODO: fix "['0']" option to use sensor_stimulus dictionary
-    
+    def column_chooser(sensor_name):
+        auto_headers = sensor_stimuli[sensor_name]
+        try:
+            man_select = int(input(f"Would you like to manually select data columns for '{sensor_name.upper()}' (1)YES/(ENTER)NO: "))
+        except:
+            man_select = 0
+        
+        if man_select != 0:
+            for i, header in enumerate(auto_headers):
+                print(f'{i+1}. {header}')
+            user_selection = input(f"Provide indecies to keep for data [1-{i}]: ").split(',')
+            if user_selection != ['0'] and len(user_selection) > 1:
+                user_selection = [range(int(x.split("-")[0]), int(x.split("-")[1])+1) if "-" in x else [int(x)] for x in user_selection]
+                user_selection = sorted(set([item for sublist in user_selection for item in sublist]))  # Flatten the list
+                user_headers = [auto_headers[col - 1] for col in user_selection]
+                return user_headers
+        return auto_headers
+
     # Go through each sensor directory
     for sensor in os.listdir(dir_dict['data']):
         sensor_data_dir = os.path.join(dir_dict['data'], sensor)
@@ -179,9 +193,9 @@ def gather_data(dir_dict):
             # Grab header info, then get columns to keep if first file in sensor directory 
             df_headers = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, nrows=0, low_memory=False).columns.tolist()[1:]
             if keep_cols == None:
-                keep_cols, keep_cols_index = column_chooser(df_headers, sensor)  
+                keep_cols = column_chooser(sensor)  
             try:
-                df = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, usecols=keep_cols_index, low_memory=False)
+                df = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, usecols=keep_cols, low_memory=False)
             except ValueError as e:
                 error_cols = str(e).split(': ')[1]
                 e_keep_cols = [col for col in keep_cols if col not in error_cols]
@@ -191,9 +205,9 @@ def gather_data(dir_dict):
     return dir_dict['results']
     #TODO: Utilize df headers for files to get metadata (find place to put metadata)
     #TODO: Finish this section of the code, should be finding a way to smartly detect which columns to keep based on the data
-    #TODO: Also need to add a way to keep the same columns for the next participant if they are the same sensor
 
 
 if __name__ == '__main__':
     data_dirs, sensors = prep_data()
     results_dir = gather_data(data_dirs)
+    #TODO: Turn this program into an application for easier user experience
