@@ -1,17 +1,18 @@
+from ast import Tuple
 from pathlib import Path
 import os
 import sys
 import shutil
 import pandas as pd
 
-recognized_sensors = {
+RECOGNIZEDSENSORS = {
     'FACET': ['Camera', 'Emotient', 'FACET'],
     'Shimmer': ['Shimmer', 'GSR'],
     'Aurora': ['Eyetracker', 'Smart Eye', 'Aurora'],
     'PolarH10': ['Bluetooth Low Energy', 'Polar H10', 'HeartRate']
 }
 
-sensor_stimuli = {
+SENSORSTIMULUS = {
     'FACET': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber', 'Timestamp RAW', 'Timestamp CAL', 'System Timestamp CAL', 'VSenseBatt RAW',
               'VSenseBatt CAL', 'Internal ADC A13 PPG RAW', 'Internal ADC A13 PPG CAL', 'GSR RAW' , 'GSR Resistance CAL',
               'GSR Conductance CAL', 'Heart Rate PPG ALG', 'IBI PPG ALG', 'Packet reception rate RAW'],
@@ -27,7 +28,16 @@ sensor_stimuli = {
     'PolarH10': ['Timestamp','SlideEvent','SourceStimuliName','Heart rate','R-R interval','Energy expended','Contact'],
 }
 
-def prep_data():
+def createNewDirectory(newPath):
+    if not os.path.exists(newPath):
+        try:
+            os.makedirs(newPath)
+        except OSError as error:
+            sys.exit(f"Failed to create directory: {error}")
+    return newPath
+
+
+def prepareData():
     """
     Prepares the data for cleaning and analysis.
 
@@ -36,178 +46,145 @@ def prep_data():
     It also renames the files based on the recognized sensors.
 
     Returns:
-        dir_dict (dict): A dictionary containing the paths to the results directory, gather directory, and data directory.
+        activeDirectories (dict): A dictionary containing the paths to the results directory, gather directory, and data directory.
     """
-    def create_directory(path):
-        """Recursively creates a directory if it does not exist."""
-        if not os.path.exists(path):
-            try:
-                os.makedirs(path)
-            except OSError as e:
-                sys.exit(f"Failed to create directory: {e}")
-        else:
-            return print(f'"{path}" already exists')
+    def overwriteDirectory(directory):
+        try:
+            removePreviousData = bool(int(input("Do you want to delete the previous data? (0)NO/(1)YES: ")))
+        except:
+            return overwriteDirectory(directory)
+        if removePreviousData:
+            shutil.rmtree(directory)
+            shutil.copytree(importDirectory, directory)
     
-    import_dir = None
-    export_dir = None
-    dir_dict = dict()
-    user_sensors = list()
-
-    # Prompt the user to select the import directory
-    while not import_dir:
-        directories = [d for d in Path.cwd().iterdir() if d.is_dir() and not d.name.startswith('.')]
-        for directory in directories:
-            if directory.name.find('data') != -1:
-                import_dir = directory
+    def renameDirectory(directory):
+        for sensorType, sensorName in RECOGNIZEDSENSORS.items():
+            if any(sensorKeyword in directory.name for sensorKeyword in sensorName):
+                newDirectory = Path(os.path.join(dataDirectory, sensorType))
+                directory.rename(newDirectory)
+                for fileName in newDirectory.iterdir():
+                    name, ext = fileName.stem, fileName.suffix
+                    name = name.split('_')[-1]
+                    newFileName = f"{sensorType[0]}_{name}{ext}"
+                    fileName.rename(newDirectory / newFileName)
                 break
-        if not import_dir:
-            print('-'*50)
-            print("Available IMPORT directories:")
-            for i, directory in enumerate(directories, start=1):
-                print(f"{i-1}. {directory}")
-            user_choice = input("Use Directory [number]: ")
-            try:
-                user_choice = int(user_choice)
-                if 0 <= user_choice <= len(directories):
-                    import_dir = directories[user_choice]
-            except ValueError:
-                continue
+        else:
+            print(f'Warning: ({directory.name}) not recognized or already created')
 
-    # Prompt the user to select the export directory
-    while not export_dir:
+    def getImportDirectory():
+        availableDirectories = list()
+        for directory in Path.cwd().iterdir():
+            if directory.is_dir() and directory.name.find('data') >= 0:
+                availableDirectories.append(directory)
+
+        print('-'*50)
+        print("Available IMPORT directories:")
+        for index, directory in enumerate(availableDirectories, start=0):
+            print(f"{index}. {directory}")
+        try:
+            userDirectory = int(input("Use Directory [number]: "))
+            importDirectory = availableDirectories[userDirectory]
+        except:
+            return getImportDirectory()
+        return importDirectory 
+
+    def createDataDirectory():
         print('-'*50)
         print("Available EXPORT directories:")
         print(f'0. {Path.home() / "Downloads" / "iMotions_Exports"}')
         print(f'1. {Path.home() / "Desktop" / "iMotions_Exports"}')
         print(f'2. {Path.home() / "Documents" / "iMotions_Exports"}')
-        user_choice = input("Use Directory [number]: ")
         try:
-            user_choice = int(user_choice)
+            userExportDirectory = int(input("Choose Directory: "))
         except:
-            user_choice = 0
-        finally: 
-            if user_choice == 0:
-                export_dir = Path.home() / "Downloads" / "iMotions_Exports"
-            elif user_choice == 1:    
-                export_dir = Path.home() / "Desktop" / "iMotions_Exports"
-            elif user_choice == 2:
-                export_dir = Path.home() / "Documents" / "iMotions_Exports"
-    
-    # Dictionary for paths to go for easier reference
-    dir_dict.update({'export': export_dir, 'results': export_dir / 'Results', 'data': export_dir / 'Data'})
-    
-    # Data removal block with error handling
-    try: 
-        os.listdir(dir_dict['export'])
-    except FileNotFoundError as e:
-        rm_prev = 0
-    else:
-        print('-'*50)
-        try:
-            rm_prev = int(input("Do you want to delete the previous data? (0)YES/(1)NO: "))
-        except:
-            rm_prev = 0
-    finally:
-        if not rm_prev:
-            if os.path.exists(dir_dict['export']):
-                shutil.rmtree(dir_dict['export'])
-                # Copy the data from the import directory to the export directory
-            shutil.copytree(import_dir, dir_dict['data'])
-
-    # Rename data files and create directories for results/gather data  
-    sensor_list = [x for x in dir_dict['data'].iterdir() if x.is_dir()]
-    for sensor in sensor_list:
-        for sensor_type, sensor_names in recognized_sensors.items():
-            if any(sensor_name in sensor.name for sensor_name in sensor_names):
-                user_sensors.append(sensor_type)
-                new_dir = sensor.parent / sensor_type
-                sensor.rename(new_dir)
-                e_sensor_dir = os.path.join(dir_dict['results'], sensor_type)
-                if not rm_prev:
-                    create_directory(e_sensor_dir)
-                for file in new_dir.iterdir():
-                    name, ext = file.stem, file.suffix
-                    name = name.split('_')[-1]
-                    new_file_name = f"{sensor_type[0]}_{name}{ext}"
-                    file.rename(new_dir / new_file_name)
-                break
+            return createDataDirectory()
         else:
-            print(f'Warning: ({sensor.name}) not recognized or already created')
+            if userExportDirectory == 0:
+                exportsDirectory = createNewDirectory(Path.home() / "Downloads" / "iMotions_Exports")
+            elif userExportDirectory == 1:    
+                exportsDirectory = createNewDirectory(Path.home() / "Desktop" / "iMotions_Exports")
+            elif userExportDirectory == 2:
+                exportsDirectory = createNewDirectory(Path.home() / "Documents" / "iMotions_Exports")
+            else:
+                return createDataDirectory()
+        dataDirectory = createNewDirectory(os.path.join(exportsDirectory, 'Data'))
+        return Path(exportsDirectory), Path(dataDirectory)
+    
+    importDirectory = getImportDirectory()
+    exportsDirectory, dataDirectory = createDataDirectory()
+    overwriteDirectory(dataDirectory)
+    userSensors = [x for x in dataDirectory.iterdir() if x.is_dir()] 
+    for sensorPath in userSensors:
+        renameDirectory(sensorPath)
+    return exportsDirectory, dataDirectory
 
-    return dir_dict, user_sensors
 
-
-def gather_data(dir_dict):
+def gather_data(exportsDirectory, dataDirectory):
     """
     Gets rid of unwanted data selected by user.
 
     This function prompts the user to indecies for columns of data they would like to keep. 
-    The program then uses pandas to efficiently grab that data and exports it to the 'results' directory created by the prep_data() function
+    The program then uses pandas to efficiently grab that data and exports it to the 'results' directory created by the prepareData() function
 
     Returns:
-        dir_dict['results']: A path object to the results directory.
+        activeDirectories['results']: A path object to the results directory.
     """
-    def header_end(file_data_path):
-        header_end_index = 19
-        # Check for end of header rows
-        header_end = pd.read_csv(file_data_path, nrows=1, skiprows=header_end_index).iloc[0,0]
-        while header_end != '#DATA':
-            if header_end_index > 40:
+    def dataIndexFinder(filePath):
+        INDEXMAX = 40
+        INDEXSTART = 19
+        dataStartIndex = 19
+
+        firstCellData = pd.read_csv(filePath, nrows=1, skiprows=INDEXSTART).iloc[0,0]
+        while firstCellData != '#DATA':
+            if dataStartIndex >= INDEXMAX:
                 print("Error: Could not find the end of the header rows.")
-                return 21
-            header_end_index += 1
-            header_end = pd.read_csv(file_data_path, nrows=1, skiprows=header_end_index).iloc[0,0]
-            
-        # Skip the #DATA row and the column headers row
-        return header_end_index + 2
-    def column_chooser(sensor_name):
-        auto_headers = sensor_stimuli[sensor_name]
+                return INDEXSTART
+            dataStartIndex += 1
+            firstCellData = pd.read_csv(filePath, nrows=1, skiprows=dataStartIndex).iloc[0,0]            
+        return dataStartIndex + 2
+    
+    def columnSelection(sensorName):
+        automaticHeaderList = SENSORSTIMULUS[sensorName]
         try:
-            man_select = int(input(f"Would you like to manually select data columns for '{sensor_name.upper()}' (1)YES/(ENTER)NO: "))
+            userSelection = int(input(f"Would you like to manually select data columns for '{sensorName.upper()}' (1)YES/(ENTER)NO: "))
         except:
-            man_select = 0
+            userSelection = 0
         
-        if man_select != 0:
-            for i, header in enumerate(auto_headers):
-                print(f'{i+1}. {header}')
-            user_selection = input(f"Provide indecies to keep for data [1-{i}]: ").split(',')
-            if user_selection != ['0'] and len(user_selection) > 1:
-                user_selection = [range(int(x.split("-")[0]), int(x.split("-")[1])+1) if "-" in x else [int(x)] for x in user_selection]
-                user_selection = sorted(set([item for sublist in user_selection for item in sublist]))  # Flatten the list
-                user_headers = [auto_headers[col - 1] for col in user_selection]
-                return user_headers
-        return auto_headers
+        if userSelection != 0:
+            for index, header in enumerate(automaticHeaderList):
+                print(f'{index}. {header}')
+            userHeaderSelection = input(f"Provide indecies to keep for data [0-{index}]: ").split(',')
+            if userHeaderSelection != ['0'] and len(userHeaderSelection) > 1:
+                userHeaderSelection = [range(int(x.split("-")[0]), int(x.split("-")[1])) if "-" in x else [int(x)] for x in userHeaderSelection]
+                userHeaderSelection = sorted(set([item for sublist in userHeaderSelection for item in sublist]))  # Flatten the list
+                userHeaderList = [automaticHeaderList[col] for col in userHeaderSelection]
+                return userHeaderList
+        return automaticHeaderList
 
-    # Go through each sensor directory
-    for sensor in os.listdir(dir_dict['data']):
-        sensor_data_dir = os.path.join(dir_dict['data'], sensor)
-        sensor_export_dir = os.path.join(dir_dict['results'], sensor)
-        keep_cols = None
-        
-        # Go through each file
-        for file_name in os.listdir(sensor_data_dir):
-            file_export_path = os.path.join(sensor_export_dir, file_name)
-            file_data_path = os.path.join(sensor_data_dir, file_name)
-            header_end_index = header_end(file_data_path)
-
-            # Grab header info, then get columns to keep if first file in sensor directory 
-            df_headers = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, nrows=0, low_memory=False).columns.tolist()[1:]
-            if keep_cols == None:
-                keep_cols = column_chooser(sensor)  
+    resultsDirectory = createNewDirectory(os.path.join(exportsDirectory, 'Results'))
+    for sensorName in os.listdir(dataDirectory):
+        currentResultsDirectory = createNewDirectory(os.path.join(resultsDirectory, sensorName))
+        currentDataDirectory = os.path.join(dataDirectory, sensorName)
+        keepColumns = columnSelection(sensorName)
+        for fileName in os.listdir(currentDataDirectory):
+            fileResultsPath = os.path.join(currentResultsDirectory, fileName)
+            fileDataPath = os.path.join(currentDataDirectory, fileName)
+            fileDataIndex = dataIndexFinder(fileDataPath)
+            
             try:
-                df = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, usecols=keep_cols, low_memory=False)
-            except ValueError as e:
-                error_cols = str(e).split(': ')[1]
-                e_keep_cols = [col for col in keep_cols if col not in error_cols]
-                df = pd.read_csv(file_data_path, skiprows=header_end_index, header=0, usecols=e_keep_cols, low_memory=False)
+                dataframe = pd.read_csv(fileDataPath, skiprows=fileDataIndex, header=0, usecols=keepColumns, low_memory=False)
+            except ValueError as error:
+                errorColumns = str(error).split(': ')[1]
+                errorKeepColumns = [col for col in keepColumns if col not in errorColumns]
+                dataframe = pd.read_csv(fileDataPath, skiprows=fileDataIndex, header=0, usecols=errorKeepColumns, low_memory=False)
             finally:
-                df.to_csv(file_export_path)
-    return dir_dict['results']
+                dataframe.to_csv(fileResultsPath)
+    return 
     #TODO: Utilize df headers for files to get metadata (find place to put metadata)
     #TODO: Finish this section of the code, should be finding a way to smartly detect which columns to keep based on the data
 
 
 if __name__ == '__main__':
-    data_dirs, sensors = prep_data()
-    results_dir = gather_data(data_dirs)
+    exportsDirectory, dataDirectory = prepareData()
+    results_dir = gather_data(exportsDirectory, dataDirectory)
     #TODO: Turn this program into an application for easier user experience
