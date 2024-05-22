@@ -1,18 +1,17 @@
-from ast import Tuple
 from pathlib import Path
 import os
 import sys
 import shutil
 import pandas as pd
 
-RECOGNIZEDSENSORS = {
+RECOGNIZED_SENSORS = {
     'FACET': ['Camera', 'Emotient', 'FACET'],
     'Shimmer': ['Shimmer', 'GSR'],
     'Aurora': ['Eyetracker', 'Smart Eye', 'Aurora'],
     'PolarH10': ['Bluetooth Low Energy', 'Polar H10', 'HeartRate']
 }
 
-SENSORSTIMULUS = {
+SENSOR_STIMULUS = {
     'FACET': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber', 'Timestamp RAW', 'Timestamp CAL', 'System Timestamp CAL', 'VSenseBatt RAW',
               'VSenseBatt CAL', 'Internal ADC A13 PPG RAW', 'Internal ADC A13 PPG CAL', 'GSR RAW' , 'GSR Resistance CAL',
               'GSR Conductance CAL', 'Heart Rate PPG ALG', 'IBI PPG ALG', 'Packet reception rate RAW'],
@@ -58,7 +57,7 @@ def prepareData():
             shutil.copytree(importDirectory, directory)
     
     def renameDirectory(directory):
-        for sensorType, sensorName in RECOGNIZEDSENSORS.items():
+        for sensorType, sensorName in RECOGNIZED_SENSORS.items():
             if any(sensorKeyword in directory.name for sensorKeyword in sensorName):
                 newDirectory = Path(os.path.join(dataDirectory, sensorType))
                 directory.rename(newDirectory)
@@ -119,7 +118,7 @@ def prepareData():
     return exportsDirectory, dataDirectory
 
 
-def gather_data(exportsDirectory, dataDirectory):
+def gatherData(exportsDirectory, dataDirectory):
     """
     Gets rid of unwanted data selected by user.
 
@@ -144,7 +143,7 @@ def gather_data(exportsDirectory, dataDirectory):
         return dataStartIndex + 2
     
     def columnSelection(sensorName):
-        automaticHeaderList = SENSORSTIMULUS[sensorName]
+        automaticHeaderList = SENSOR_STIMULUS[sensorName]
         try:
             userSelection = int(input(f"Would you like to manually select data columns for '{sensorName.upper()}' (1)YES/(ENTER)NO: "))
         except:
@@ -186,5 +185,5 @@ def gather_data(exportsDirectory, dataDirectory):
 
 if __name__ == '__main__':
     exportsDirectory, dataDirectory = prepareData()
-    results_dir = gather_data(exportsDirectory, dataDirectory)
+    results_dir = gatherData(exportsDirectory, dataDirectory)
     #TODO: Turn this program into an application for easier user experience

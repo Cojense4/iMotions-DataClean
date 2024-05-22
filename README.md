@@ -2,11 +2,9 @@
 ## Description
 This project is designed to clean iMotions data for further analysis. It's primarily intended for data scientists and researchers who work with iMotions data.
 
-
 ## Features
-* prep_data(), stores data in outside directory and creates directories for exports
-* clean_data(), preliminarily looks at data and stores keys to data points for cleaning process 
-* export_data(), exports cleaned/processed data to export folder 
+* prepData(), stores data in outside directory and creates directories for exports
+* gatherData(), grabs wanted columns for exporting 
 
 ## Installation
 ### Prerequisites
