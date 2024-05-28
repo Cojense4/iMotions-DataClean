@@ -47,6 +47,9 @@ def prepareData():
     Returns:
         activeDirectories (dict): A dictionary containing the paths to the results directory, gather directory, and data directory.
     """
+    homeDir = os.path.expanduser('~')
+    availableDirectories = []
+    
     def overwriteDirectory(directory):
         try:
             removePreviousData = bool(int(input("Do you want to delete the previous data? (0)NO/(1)YES: ")))
@@ -69,12 +72,29 @@ def prepareData():
                 break
         else:
             print(f'Warning: ({directory.name}) not recognized or already created')
+    def haveDirAccess(path):
+        try:
+            for item in Path(path).iterdir():
+                return True
+        except PermissionError as P:
+            return False
+        except NotADirectoryError as NA:
+            return False
 
+    def findDataDir(directory):
+        if directory.name.find('data') >= 0:
+            availableDirectories.append(directory)
+            return True
+        for subDirectory in Path(directory).iterdir():
+            if subDirectory.is_dir() and subDirectory.name.find('data') >= 0:
+                availableDirectories.append(subDirectory)
+                return True
+        return False
+    
     def getImportDirectory():
-        availableDirectories = list()
-        for directory in Path.cwd().iterdir():
-            if directory.is_dir() and directory.name.find('data') >= 0:
-                availableDirectories.append(directory)
+        for path in Path(homeDir).iterdir():
+            if haveDirAccess(path):
+                findDataDir(path)
 
         print('-'*50)
         print("Available IMPORT directories:")
