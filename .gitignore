@@ -1,6 +1,10 @@
-
-/.idea
-/Imports
-/venv
+.idea/
+.venv/
 test_data/
-.vscode/settings.json
+.vscode/
+.dist/
+__pycache__/
+build/
+dist/
+DataCleaner.spec
+
