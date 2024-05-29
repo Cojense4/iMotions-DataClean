@@ -12,14 +12,15 @@ RECOGNIZED_SENSORS = {
 }
 
 SENSOR_STIMULUS = {
-    'FACET': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber', 'Timestamp RAW', 'Timestamp CAL', 'System Timestamp CAL', 'VSenseBatt RAW',
-              'VSenseBatt CAL', 'Internal ADC A13 PPG RAW', 'Internal ADC A13 PPG CAL', 'GSR RAW' , 'GSR Resistance CAL',
-              'GSR Conductance CAL', 'Heart Rate PPG ALG', 'IBI PPG ALG', 'Packet reception rate RAW'],
-    'Shimmer': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber','Timestamp RAW','Timestamp CAL','System Timestamp CAL','VSenseBatt RAW','VSenseBatt CAL',
-                'Internal ADC A13 PPG RAW','Internal ADC A13 PPG CAL','GSR RAW', 'GSR Resistance CAL',
+    'FACET': ['Timestamp','SlideEvent','SourceStimuliName','NoOfFaces', 'FaceRect X', 'FaceRect Y', 'FaceRect Width', 'FaceRect Height', 'Joy', 
+              'Anger', 'Suprise', 'Fear', 'Contempt', 'Disgust', 'Sadness', 'Confustion', 'Frustration', 'Neutral', 'Positive', 'Negative', 
+              'AU1', 'AU2', 'AU4', 'AU5', 'AU6', 'AU7', 'AU9', 'AU10', 'AU12', 'AU14', 'AU15', 'AU17', 'AU18', 'AU20', 'AU23', 'AU24', 'AU25', 
+              'AU26', 'AU28', 'AU43', 'SampleNumber', 'FrameNo', 'FrameTime'],
+    'Shimmer': ['Timestamp','SlideEvent','SourceStimuliName','SampleNumber','Timestamp RAW','Timestamp CAL','System Timestamp CAL',
+                'VSenseBatt RAW','VSenseBatt CAL', 'Internal ADC A13 PPG RAW','Internal ADC A13 PPG CAL','GSR RAW', 'GSR Resistance CAL',
                 'GSR Conductance CAL','Heart Rate PPG ALG','IBI PPG ALG','Packet reception rate RAW'],
-    'Aurora': ['Timestamp','SlideEvent','SourceStimuliName','ET_GazeLeftx','ET_GazeLefty','ET_GazeRightx','ET_GazeRighty','ET_PupilLeft','ET_PupilRight',
-               'ET_TimeSignal','ET_DistanceLeft','ET_DistanceRight','ET_CameraLeftX','ET_CameraLeftY','ET_CameraRightX',
+    'Aurora': ['Timestamp','SlideEvent','SourceStimuliName','ET_GazeLeftx','ET_GazeLefty','ET_GazeRightx','ET_GazeRighty','ET_PupilLeft',
+               'ET_PupilRight', 'ET_TimeSignal','ET_DistanceLeft','ET_DistanceRight','ET_CameraLeftX','ET_CameraLeftY','ET_CameraRightX',
                'ET_CameraRightY','ET_Distance3D','ET_HeadRotationPitch','ET_HeadRotationYaw','ET_HeadRotationRoll',
                'ET_GazeDirectionLeftQuality','ET_GazeDirectionRightQuality','ET_EyelidOpeningLeft',
                'ET_EyelidOpeningLeftQuality','ET_EyelidOpeningRight','ET_EyelidOpeningRightQuality',
@@ -109,21 +110,26 @@ def prepareData():
 
     def createDataDirectory():
         print('-'*50)
+        studyName = "_".join(input("Please name your study: ").split(" "))
+        if studyName == "":
+            folderName = "iMotions_Exports"
+        else:
+            folderName = studyName+"_Exports"
         print("Available EXPORT directories:")
-        print(f'0. {Path.home() / "Downloads" / "iMotions_Exports"}')
-        print(f'1. {Path.home() / "Desktop" / "iMotions_Exports"}')
-        print(f'2. {Path.home() / "Documents" / "iMotions_Exports"}')
+        print(f'0. {Path.home() / "Downloads" / folderName}')
+        print(f'1. {Path.home() / "Desktop" / folderName}')
+        print(f'2. {Path.home() / "Documents" / folderName}')
         try:
             userExportDirectory = int(input("Choose Directory: "))
         except:
             return createDataDirectory()
         else:
             if userExportDirectory == 0:
-                exportsDirectory = createNewDirectory(Path.home() / "Downloads" / "iMotions_Exports")
+                exportsDirectory = createNewDirectory(Path.home() / "Downloads" / folderName)
             elif userExportDirectory == 1:    
-                exportsDirectory = createNewDirectory(Path.home() / "Desktop" / "iMotions_Exports")
+                exportsDirectory = createNewDirectory(Path.home() / "Desktop" / folderName)
             elif userExportDirectory == 2:
-                exportsDirectory = createNewDirectory(Path.home() / "Documents" / "iMotions_Exports")
+                exportsDirectory = createNewDirectory(Path.home() / "Documents" / folderName)
             else:
                 return createDataDirectory()
         dataDirectory = createNewDirectory(os.path.join(exportsDirectory, 'Data'))
@@ -198,12 +204,12 @@ def gatherData(exportsDirectory, dataDirectory):
                 dataframe = pd.read_csv(fileDataPath, skiprows=fileDataIndex, header=0, usecols=errorKeepColumns, low_memory=False)
             finally:
                 dataframe.to_csv(fileResultsPath)
-    return 
+    return resultsDirectory
     #TODO: Utilize df headers for files to get metadata (find place to put metadata)
     #TODO: Finish this section of the code, should be finding a way to smartly detect which columns to keep based on the data
 
 
 if __name__ == '__main__':
     exportsDirectory, dataDirectory = prepareData()
-    results_dir = gatherData(exportsDirectory, dataDirectory)
+    print(gatherData(exportsDirectory, dataDirectory))
     #TODO: Turn this program into an application for easier user experience
