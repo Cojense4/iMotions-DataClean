@@ -1,5 +1,3 @@
-import os
-import sys
 import shutil
 import pandas as pd
 from pathlib import Path
@@ -23,34 +21,86 @@ def load_sensor_config(config_path='SENSORS_config.json'):
 # Load recognized sensors and their stimuli.
 RECOGNIZED_SENSORS, SENSOR_STIMULUS = load_sensor_config()
 
-def create_new_directory(new_path):
+def get_import_directory():
     """
-    Creates a new directory if it does not exist.
-
-    Parameters:
-        new_path (Path): Path object representing the directory to be created.
+    Prompts the user to select an import directory.
 
     Returns:
-        Path: The created directory path.
+        Path: The selected directory.
     """
-    new_path.mkdir(parents=True, exist_ok=True)
-    return new_path
+    def find_import_directory(search_directory, depth=0, max_depth=2):
+        def have_dir_access(path):
+            try:
+                for _ in path.iterdir():
+                    return True
+            except (PermissionError, NotADirectoryError):
+                return False
 
-def have_dir_access(path):
-    """
-    Checks if the directory is accessible.
+        import_directories = []
 
-    Parameters:
-        path (Path): Path object representing the directory to check.
+        if depth > max_depth:
+            return import_directories
 
-    Returns:
-        bool: True if the directory is accessible, False otherwise.
-    """
+        if ('data' in search_directory.name.lower()) or ('results' in search_directory.name.lower()):
+            if search_directory.name.lower() != "appdata":
+                import_directories.append(search_directory)
+
+        for sub_directory in [path for path in Path(search_directory).iterdir() if
+                              path.is_dir() and have_dir_access(path)]:
+            import_directories.extend(find_import_directory(sub_directory, depth + 1, max_depth))
+        return import_directories
+
+    available_directories = find_import_directory(search_directory=Path.home())
+    if not available_directories:
+        print("No directories containing 'data' or 'results' found.")
+        return None
+    print('-' * 50)
+    print("Available IMPORT directories:")
+    for index, directory in enumerate(available_directories, start=1):
+        print(f"{index}. {directory}")
+
     try:
-        for _ in path.iterdir():
-            return True
-    except (PermissionError, NotADirectoryError):
-        return False
+        import_directory = available_directories[int(input("Use Directory [number]: "))-1]
+    except (IndexError, ValueError):
+        import_directory = available_directories[0]
+    return import_directory
+
+def get_export_directory():
+    """
+    Prompts the user to name their study and select an export directory.
+
+    Returns:
+        exports_directory (Path): The created export directory.
+    """
+    print('-' * 50)
+    study_name = ("_".join(input("Please name your study: ").split(" ")) or "Study") + "_EXPORTS"
+
+    available_directories = [Path(Path.home() / "Downloads" / study_name),
+                             Path(Path.home() / "Desktop" / study_name),
+                             Path(Path.home() / "Documents" / study_name)]
+
+    print("Available EXPORT directories:")
+    for index, directory in enumerate(available_directories, start=1):
+        print(f"{index}. {directory}")
+
+    try:
+        export_directory = available_directories[int(input("Use Directory [number]: "))-1]
+    except (IndexError, ValueError):
+        export_directory = available_directories[0]
+    return export_directory
+
+def rename_files(sensor_directory, sensor_type):
+    for file_path in sensor_directory.iterdir():
+        file_path = Path(file_path)
+        file_name = file_path.name
+        file_name_split = file_name.split('_')
+        if file_name_split[-1][0].isalpha():
+            new_file_name = f"Survey_{file_name_split[0]}.csv"
+            if new_file_name == 'Survey_desktop.ini.csv':
+                raise ValueError(f"IDK WHAT THIS IS??: {file_name}")
+        else:
+            new_file_name = f"{sensor_type[0]}_{file_name_split[-1]}.csv"
+        file_path.rename(Path(file_path.parent / new_file_name))
 
 def prepare_data():
     """
@@ -61,151 +111,25 @@ def prepare_data():
             - exports_directory (Path): Path to the exports directory.
             - data_directory (Path): Path to the data directory.
     """
-    home_dir = Path.home()
-    
-    import_directory = get_import_directory(home_dir)
-    exports_directory, data_directory = create_data_directory()
 
-    overwrite_directory(import_directory, data_directory)
-    rename_and_organize_sensors(data_directory)
+    import_directory = get_import_directory()
+    export_directory = get_export_directory()
 
-    return exports_directory, data_directory
-
-def find_data_dir(directory, depth=0, max_depth=2):
-    """
-    Recursively searches for directories with 'data' or 'results' in their names.
-
-    Parameters:
-        directory (Path): Path object representing the directory to search.
-        depth (int): Current recursion depth.
-        max_depth (int): Maximum recursion depth allowed.
-
-    Returns:
-        list: A list of directories matching the criteria.
-    """
-    matching_directories = []
-
-    if depth > max_depth:
-        return matching_directories
-
-    for sub_directory in [path for path in Path(directory).iterdir() if path.is_dir() and have_dir_access(path)]:
-        matching_directories.extend(find_data_dir(sub_directory, depth + 1, max_depth))
-
-    if 'data' in directory.name.lower() or 'results' in directory.name.lower():
-        matching_directories.append(directory)
-
-    return matching_directories
-        
-def get_import_directory(home_dir):
-    """
-    Prompts the user to select an import directory.
-
-    Parameters:
-        home_dir (Path): Path object representing the home directory.
-
-    Returns:
-        Path: The selected directory.
-    """
-    available_directories = find_data_dir(home_dir)
-    
-    if not available_directories:
-        print("No directories containing 'data' or 'results' found.")
-        return None
-
-    print('-' * 50)
-    print("Available IMPORT directories:")
-    for index, directory in enumerate(available_directories, start=0):
-        print(f"{index}. {directory}")
-
-    while True:
-        try:
-            user_input = int(input("Use Directory [number]: "))
-            return available_directories[user_input]
-        except (ValueError, IndexError):
-            print("Invalid input, please try again.")
-
-def create_data_directory():
-    """
-    Prompts the user to name their study and select an export directory.
-
-    Returns:
-        tuple: A tuple containing:
-            - exports_directory (Path): The created exports directory.
-            - data_directory (Path): The created data directory within the exports directory.
-    """
-    print('-' * 50)
-    study_name = "_".join(input("Please name your study: ").split(" ")) or "iMotions_Exports"
-    folder_name = study_name + "_Exports"
-    
-    export_options = [Path.home() / "Downloads" / folder_name,
-                      Path.home() / "Desktop" / folder_name,
-                      Path.home() / "Documents" / folder_name]
-
-    print("Available EXPORT directories:")
-    for i, path in enumerate(export_options):
-        print(f'{i}. {path}')
-    
-    while True:
-        try:
-            user_choice = int(input("Choose Directory: "))
-            exports_directory = create_new_directory(export_options[user_choice])
-            data_directory = create_new_directory(exports_directory / 'Data')
-            return exports_directory, data_directory
-        except (ValueError, IndexError):
-            print("Invalid input, please try again.")
-
-def overwrite_directory(import_directory, data_directory):
-    """
-    Overwrites the data directory with the contents of the import directory.
-
-    Parameters:
-        import_directory (Path): The directory from which data is imported.
-        data_directory (Path): The directory to which data is copied.
-    """
+    data_directory = Path(export_directory / "Data")
     if data_directory.exists():
-        while True:
-            try:
-                remove_previous_data = bool(int(input("Do you want to delete the previous data? (0)NO/(1)YES: ")))
-                if remove_previous_data:
-                    shutil.rmtree(data_directory)
-                    shutil.copytree(import_directory, data_directory)
-                break
-            except ValueError:
-                print("Invalid input, please try again.")
-
-def rename_and_organize_sensors(data_directory):
-    """
-    Renames and organizes sensor files within the data directory.
-
-    Parameters:
-        data_directory (Path): The directory containing sensor data.
-    """
-    for directory in data_directory.iterdir():
-        for sensor_type, sensor_names in RECOGNIZED_SENSORS.items():
-            if any(sensor_keyword in directory.name for sensor_keyword in sensor_names):
-                new_directory = data_directory / sensor_type
-                directory.rename(new_directory)
-                for file_name in new_directory.iterdir():
-                    rename_file(file_name, sensor_type)
-                break
-        else:
-            print(f'Warning: ({directory.name}) not recognized or already created')
-
-def rename_file(file_path, sensor_type):
-    """
-    Renames a file based on the sensor type and its current name.
-
-    Parameters:
-        file_path (Path): The path of the file to be renamed.
-        sensor_type (str): The type of sensor the file corresponds to.
-    """
-    name, ext = file_path.stem, file_path.suffix
-    name_split = name.split('_')
-    if name_split[-1].isalpha():
-        new_name = f"FBL_{name_split[0]}{ext}"
+        keep_previous_data = input("Do you want to keep the previous data? (1)Yes/(ENTER)No: ")
+        if keep_previous_data.lower() != "yes" and keep_previous_data != "1":
+            shutil.rmtree(data_directory)
+            shutil.copytree(import_directory, data_directory)
     else:
-        new_name = f"{sensor_type[0]}_{name_split[-1]}{ext}"
-    file_path.rename(file_path.parent / new_name)
+        shutil.copytree(import_directory, data_directory)
+
+    for sensor_directory in data_directory.iterdir():
+        for sensor_type, sensor_names in RECOGNIZED_SENSORS.items():
+            if any(sensor_keyword.lower() in sensor_directory.name.lower() for sensor_keyword in sensor_names):
+                sensor_directory = sensor_directory.rename(data_directory / sensor_type)
+                rename_files(sensor_directory, sensor_type)
+    return export_directory
 
 def data_index_finder(file_path):
     """
@@ -232,12 +156,8 @@ def data_index_finder(file_path):
             # Check the first cell data
             first_cell_data = df.iloc[current_index, 0]
             if first_cell_data == "#DATA" or first_cell_data == "question_number":
-                print(first_cell_data, "\n")
-                print(df.iloc[current_index], "\n")
-                print(df.head(), "\n")
-                print(file_path, "\n")
                 return current_index + 2
-            
+
             current_index += 1
         
         raise Exception( "Error: Could not find the end of the header rows.")
@@ -272,6 +192,7 @@ def column_selection(sensor_name):
         user_selection = 0
 
     if user_selection:
+        index = 0
         for index, header in enumerate(automatic_header_list):
             print(f'{index}. {header}')
         user_header_selection = input(f"Provide indices to keep for data [0-{index}]: ").split(',')
@@ -300,20 +221,23 @@ def parse_user_selection(user_selection, header_list):
             indices.append(int(item))
     return [header_list[i] for i in sorted(set(indices)) if 0 <= i < len(header_list)]
 
-def gather_data(exports_directory, data_directory):
+def gather_data(exports):
     """
     Gathers and processes data from sensor directories and organizes the results.
     Args:
-        exports_directory (Path): The path to the exports directory where results will be saved.
-        data_directory (Path): The path to the data directory containing organized sensor data.
+        exports (Path): The path to the exports directory where results will be saved.
     Returns:
         Path: The path to the results directory where processed data is saved.
     """
-    results_directory = create_new_directory(exports_directory / 'Results')
+    def create_new_directory(new_path):
+        new_path.mkdir(parents=True, exist_ok=True)
+        return new_path
+    
+    results_directory = create_new_directory(exports / 'Results')
     
     # Dictionary to store start indices for each sensor
     data_start_indices = {}
-    
+    data_directory = exports / "Data"
     for sensor_directory in data_directory.iterdir():
         sensor_results_dir = create_new_directory(results_directory / sensor_directory.name)
         keep_columns = column_selection(sensor_directory.name)
@@ -351,6 +275,7 @@ def process_file(file_path, output_path, keep_columns, data_index):
         pd.concat([dataframe_info, dataframe_body],axis=0).to_csv(output_path, index=False)
     except ValueError as error:
         print(f"Error processing file {file_path}: {error}")
+
 if __name__ == '__main__':
-    exports_directory, data_directory = prepare_data()
-    print(gather_data(exports_directory, data_directory))
+    exports = prepare_data()
+    gather_data(exports)
