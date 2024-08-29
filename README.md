@@ -38,7 +38,7 @@ pip install -r requirements.txt
 ```
 
 ### Data Prepping
-- Make sure you have your data stored in a folder titled "Imports" at the root<br>
+- Make sure you have your data stored in a folder titled "Imports" at the root or in the Desktop, Downloads, or Documents<br>
 ```bash
 mkdir test_data && cd test_data
 ```

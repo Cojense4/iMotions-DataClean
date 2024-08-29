@@ -1,0 +1,40 @@
+{
+    "RECOGNIZED_SENSORS": {
+        "FACET": ["Camera", "Emotient", "FACET"],
+        "Shimmer": ["Shimmer", "GSR"],
+        "Aurora": ["Eyetracker", "Smart", "Eye", "Aurora"],
+        "PolarH10": ["Bluetooth Low Energy", "Polar", "H10", "HeartRate"],
+        "FBLMist": ["FBL", "Mist"]
+    },
+    "SENSOR_STIMULUS": {
+        "Aurora": [
+            "Timestamp", "SlideEvent", "SourceStimuliName", "ET_GazeLeftx", "ET_GazeLefty", 
+            "ET_GazeRightx", "ET_GazeRighty", "ET_PupilLeft", "ET_PupilRight", "ET_TimeSignal", 
+            "ET_DistanceLeft", "ET_DistanceRight", "ET_CameraLeftX", "ET_CameraLeftY", "ET_CameraRightX", 
+            "ET_CameraRightY", "ET_Distance3D", "ET_HeadRotationPitch", "ET_HeadRotationYaw", 
+            "ET_HeadRotationRoll", "ET_GazeDirectionLeftQuality", "ET_GazeDirectionRightQuality", 
+            "ET_EyelidOpeningLeft", "ET_EyelidOpeningLeftQuality", "ET_EyelidOpeningRight", 
+            "ET_EyelidOpeningRightQuality", "ET_LeftPupilDiameterQuality", "ET_RightPupilDiameterQuality"
+        ],
+        "FACET": [
+            "Timestamp", "SlideEvent", "SourceStimuliName", "NoOfFaces", "FaceRect X", "FaceRect Y", 
+            "FaceRect Width", "FaceRect Height", "Positive", "Negative", "AU1", "AU2", "AU4", "AU5", 
+            "AU6", "AU7", "AU9", "AU10", "AU12", "AU14", "AU15", "AU17", "AU18", "AU20", "AU23", "AU24",
+            "AU25", "AU26", "AU28", "AU43", "SampleNumber", "FrameNo", "FrameTime"
+        ],
+        "FBLMist": [
+            "question_number", "user_value", "numerical_user_value", "correct_answer", 
+            "user_correct/incorrect", "seconds_remaining"
+        ],
+        "Shimmer": [
+            "Timestamp", "SlideEvent", "SourceStimuliName", "SampleNumber", "Timestamp RAW", 
+            "Timestamp CAL", "System Timestamp CAL", "VSenseBatt RAW", "VSenseBatt CAL", 
+            "Internal ADC A13 PPG RAW", "Internal ADC A13 PPG CAL", "GSR RAW", "GSR Resistance CAL", 
+            "GSR Conductance CAL", "Heart Rate PPG ALG", "IBI PPG ALG", "Packet reception rate RAW"
+        ],
+        "PolarH10": [
+            "Timestamp", "SlideEvent", "SourceStimuliName", "Heart rate", "R-R interval", 
+            "Energy expended", "Contact"
+        ]
+    }
+}
