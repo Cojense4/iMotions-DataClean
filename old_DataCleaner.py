@@ -203,4 +203,3 @@ def process_file(file_path, output_path, keep_columns):
 if __name__ == '__main__':
     exports_directory, data_directory = prepare_data()
     print(gather_data(exports_directory, data_directory))
-    #TODO: Turn this program into an application for easier user experience

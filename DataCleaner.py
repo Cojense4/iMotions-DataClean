@@ -1,6 +1,7 @@
 import shutil
 import pandas as pd
 from pathlib import Path
+import numpy as np
 
 def load_sensor_config(config_path='SENSORS_config.json'):
     """
@@ -96,10 +97,10 @@ def rename_files(sensor_directory, sensor_type):
         file_name_split = file_name.split('_')
         if file_name_split[-1][0].isalpha():
             new_file_name = f"Survey_{file_name_split[0]}.csv"
-            if new_file_name == 'Survey_desktop.ini.csv':
+            if new_file_name == 'Survey_desktop.ini':
                 raise ValueError(f"IDK WHAT THIS IS??: {file_name}")
         else:
-            new_file_name = f"{sensor_type[0]}_{file_name_split[-1]}.csv"
+            new_file_name = f"{sensor_type[0]}_{file_name_split[-1]}"
         file_path.rename(Path(file_path.parent / new_file_name))
 
 def prepare_data():
@@ -143,20 +144,21 @@ def data_index_finder(file_path):
     """
     index_max = 40
     current_index = 0
-    # Read one row, skipping the specified number of rows
-    df = pd.read_csv(file_path, low_memory=False)
+    # Read one row, without assuming any row is a header
+    df = pd.read_csv(file_path, low_memory=False, header=None, on_bad_lines="warn")
+
+    print(file_path)
     try:
-        while current_index < index_max:
+        while current_index < min(index_max, len(df)):
             # Check if the DataFrame is empty
             if df.empty:
                 print(f"Warning: No data found at skiprows={current_index}.")
                 current_index += 1
                 continue
-            
-            # Check the first cell data
-            first_cell_data = df.iloc[current_index, 0]
-            if first_cell_data == "#DATA" or first_cell_data == "question_number":
-                return current_index + 2
+            first_row = df.iloc[current_index]
+            print(f"Checking row {current_index}: {first_row.values}")  # Debug print
+            if first_row.str.contains("#DATA|question_number", case=False, na=False).any():
+                return current_index + 1
 
             current_index += 1
         
@@ -244,7 +246,9 @@ def gather_data(exports):
         
         # Call data_index_finder once for the current sensor and store the result
         sensor_files = list(sensor_directory.iterdir())
-        data_index = data_index_finder(sensor_directory / sensor_files[0].name)  # Assuming sensor_directory is a Path
+        data_index = data_index_finder(sensor_files[0])  # Assuming sensor_directory is a Path
+        print(sensor_files[0])
+        print(data_index)
         data_start_indices[sensor_directory.name] = data_index  # Store the index
         
         for file in sensor_files:
@@ -254,6 +258,9 @@ def gather_data(exports):
                 print(f"Skipping file {file} due to invalid data index.")
     
     return results_directory
+
+import pandas as pd
+from pathlib import Path
 
 def process_file(file_path, output_path, keep_columns, data_index):
     """
@@ -267,15 +274,36 @@ def process_file(file_path, output_path, keep_columns, data_index):
         ValueError: If there's an issue processing the file (e.g., invalid column indices).
     """
     try:
-        dataframe_header = pd.read_csv(file_path, skiprows=data_index, nrows=1)
-        dataframe_info = pd.read_csv(file_path, nrows=data_index, header=data_index)
-        dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, usecols=keep_columns, low_memory=False)
-        print(dataframe_info,"\n")
-        print(dataframe_body)
-        pd.concat([dataframe_info, dataframe_body],axis=0).to_csv(output_path, index=False)
+        # Read the body of the data
+        dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, low_memory=False)
+        print(dataframe_body.head())
+        dataframe_body = dataframe_body[keep_columns]  # Keep only the specified columns
+
+        # Read the header part of the data
+        dataframe_header = pd.read_csv(file_path, nrows=data_index, header=None)
+
+        # Adjust the header to match the number of columns in the data body
+        header_columns = dataframe_body.columns.to_list()
+        dataframe_header = dataframe_header.iloc[:, :len(header_columns)]  # Trim or extend to match
+
+        # Rename the columns in dataframe_header to match the data columns
+        dataframe_header.columns = header_columns
+
+        # Concatenate header and body
+        final_dataframe = pd.concat([dataframe_header, dataframe_body], axis=0, ignore_index=True)
+
+        # Save the processed data
+        final_dataframe.to_csv(output_path, index=False)
+
     except ValueError as error:
+        # Print results for verification
+        print(dataframe_body.head())
+        print(dataframe_header.head(), "\n--------------")
         print(f"Error processing file {file_path}: {error}")
+
 
 if __name__ == '__main__':
     exports = prepare_data()
-    gather_data(exports)
+    results_directory = gather_data(exports)
+    print(f"Data processing complete. Results saved in: {results_directory}")
+
