@@ -45,7 +45,7 @@ mkdir test_data && cd test_data
 
 - Your data should be split into folders by sensors, and have each participant should be an individual .csv file
 ```bash
-python DataCleaner.py
+python old_DataCleaner.py
 ```  
 
 
