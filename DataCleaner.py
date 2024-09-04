@@ -1,4 +1,6 @@
 import shutil
+from logging import raiseExceptions
+import numpy as np
 import pandas as pd
 from pathlib import Path
 import re
@@ -22,7 +24,7 @@ def load_sensor_config(config_path='SENSORS_config.json'):
 # Load recognized sensors and their stimuli.
 RECOGNIZED_SENSORS, SENSOR_STIMULUS = load_sensor_config()
 
-def get_import_directory():
+def get_directory_by_name():
     """
     Prompts the user to select an import directory.
 
@@ -113,7 +115,7 @@ def prepare_data():
             - data_directory (Path): Path to the data directory.
     """
 
-    import_directory = get_import_directory()
+    import_directory = get_directory_by_name()
     export_directory = get_export_directory()
 
     data_directory = Path(export_directory / "Data")
@@ -132,6 +134,7 @@ def prepare_data():
                 rename_files(sensor_directory, sensor_type)
     return export_directory
 
+
 def data_index_finder(file_path):
     """
     Finds the starting index of data within a CSV file.
@@ -142,46 +145,46 @@ def data_index_finder(file_path):
     Returns:
         int: The row index where the data starts.
     """
-    index_max = 50
+    index_max = 50  # Maximum number of rows to check for data
     current_index = 0
-    # Read one row, without assuming any row is a header
-    df = pd.read_csv(file_path, low_memory=False, header=None, on_bad_lines="skip")
-    if df.shape[1] == 2:
-        print(f"Warning: File {file_path} has only two columns. Trying to correct...")
 
-        # You can choose to return early here, assuming data starts at the second row,
-        # or handle it differently depending on your use case.
-        return 1
+    # Read the file without assuming any row is a header
     try:
+        df = pd.read_csv(file_path, low_memory=False, header=None, on_bad_lines="skip")
+        print(f"File {file_path} loaded successfully.")
+
+        # Check if the file has only 2 columns (potential issue)
+        if df.shape[1] == 2:
+            print(f"Warning: File {file_path} has only two columns. Trying to correct...")
+            column_names = SENSOR_STIMULUS['FBLMist']
+            df = pd.read_csv(file_path, low_memory=False, header=None, names=column_names, on_bad_lines="skip")
+
+        # Iterate through rows to find the data start
         while current_index < min(index_max, len(df)):
-            # Check if the DataFrame is empty
-            if df.empty:
-                print(f"Warning: No data found at skip rows={current_index}.")
-                current_index += 1
-                continue
-            first_cell = df.iloc[current_index, 0]
+            first_cell = df.iloc[current_index, 0]  # Get the first cell of the current row
 
-            # If the first cell contains specific markers, determine the start of data
+            # Skip empty or NaN rows
             if pd.isna(first_cell):
-                # Handle the case where the first cell is NaN (empty)
                 current_index += 1
                 continue
 
+            # Check if the row contains specific markers indicating the start of the data
             if first_cell == "#DATA" or first_cell == "sona_id":
+                print(f"Data starts at row {current_index + 1}")
                 return current_index + 1
 
             current_index += 1
-        
-        raise Exception( "Error: Could not find the end of the header rows.")
+
+        raise Exception("Error: Could not find the start of the data.")
 
     except FileNotFoundError:
         print(f"Error: The file {file_path} was not found.")
-        return None  # or raise an exception if preferred
+        return None
     except pd.errors.EmptyDataError:
         print(f"Error: The file {file_path} is empty.")
         return None
     except pd.errors.ParserError as pe:
-        print(f"Error processing file {file_path}: {pe}\n")
+        print(f"Error processing file {file_path}: {pe}")
         return None
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -279,9 +282,33 @@ def process_file(file_path, output_path, keep_columns, data_index, retry=True):
     Raises:
         ValueError: If there's an issue processing the file (e.g., invalid column indices).
     """
+
+    def read_csv_with_fixed_columns(file, column_names=None, num_columns=6):
+        # Create column names to force 6 columns
+        if column_names is None:
+            column_names = [f"Column_{i}" for i in range(1, num_columns + 1)]
+
+        # Read the CSV, forcing the specified number of columns
+        df = pd.read_csv(file, header=None, names=column_names, engine='python', on_bad_lines='skip')
+
+        # Pad rows with fewer columns
+        if df.shape[1] < num_columns:
+            for i in range(num_columns - df.shape[1]):
+                df[f'Extra_Column_{i + 1}'] = pd.NA
+
+        # Truncate rows with more columns
+        if df.shape[1] > num_columns:
+            df = df.iloc[:, :num_columns]
+
+        return df
+
     try:
-        # Read the body of the data
-        dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, low_memory=False)
+        if retry:
+            # Read the body of the data
+            dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, low_memory=False)
+        else:
+            column_names = SENSOR_STIMULUS['FBLMist']
+            dataframe_body = read_csv_with_fixed_columns(file_path, column_names)
 
         # Handle case when the DataFrame has only two columns
         if dataframe_body.shape[1] == 2:
@@ -307,19 +334,24 @@ def process_file(file_path, output_path, keep_columns, data_index, retry=True):
                 print(f'-' * 40)
 
         dataframe_body = dataframe_body[existing_columns]  # Keep only the specified columns
-        print(file_path)
-        print(data_index)
+
 
         # Read the header part of the data
         dataframe_header = pd.read_csv(file_path, nrows=data_index, header=None)
 
+        # Ensure dataframe_header has exactly 6 columns
+        num_columns = 6
+        if dataframe_header.shape[1] < num_columns:
+            for i in range(num_columns - dataframe_header.shape[1]):
+                dataframe_header[f'Extra_Column_{i + 1}'] = np.nan
+
         # Ensure the number of columns match before assigning the column names
         if len(dataframe_header.columns) != len(dataframe_body.columns):
-            print(f"Warning: Header columns and body columns do not match in {file_path}")
             dataframe_header = dataframe_header.iloc[:, :len(dataframe_body.columns)]  # Trim to match
 
         # Rename the columns in dataframe_header to match the data columns
         header_columns = dataframe_body.columns.to_list()
+
         dataframe_header.columns = header_columns
 
         # Concatenate header and body
@@ -333,9 +365,7 @@ def process_file(file_path, output_path, keep_columns, data_index, retry=True):
         new_data_index = data_index_finder(file_path)
         print(new_data_index)
         return process_file(file_path, output_path, keep_columns, new_data_index+1)
-    except Exception as e:
-        # Print results for verification
-        print(f"Error processing file {file_path}: {e}")
+
 
 
 if __name__ == '__main__':
