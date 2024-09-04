@@ -27,10 +27,9 @@
             "user_correct/incorrect", "seconds_remaining"
         ],
         "Shimmer": [
-            "Timestamp", "SlideEvent", "SourceStimuliName", "SampleNumber", "Timestamp RAW", 
-            "Timestamp CAL", "System Timestamp CAL", "VSenseBatt RAW", "VSenseBatt CAL", 
-            "Internal ADC A13 PPG RAW", "Internal ADC A13 PPG CAL", "GSR RAW", "GSR Resistance CAL", 
-            "GSR Conductance CAL", "Heart Rate PPG ALG", "IBI PPG ALG", "Packet reception rate RAW"
+            "Timestamp", "Combined Event Source", "SlideEvent", "Duration", "SourceStimuliName",
+            "InputEventSource", "Data", "StimType", "Timestamp RAW", "Timestamp CAL", "Internal ADC A13 PPG CAL",
+            "GSR RAW", "GSR Resistance CAL", "GSR Conductance CAL", "Heart Rate PPG ALG", "IBI PPG ALG"
         ],
         "PolarH10": [
             "Timestamp", "SlideEvent", "SourceStimuliName", "Heart rate", "R-R interval", 

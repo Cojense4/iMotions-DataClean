@@ -1,7 +1,7 @@
 import shutil
 import pandas as pd
 from pathlib import Path
-import numpy as np
+import re
 
 def load_sensor_config(config_path='SENSORS_config.json'):
     """
@@ -109,7 +109,7 @@ def prepare_data():
 
     Returns:
         tuple: A tuple containing:
-            - exports_directory (Path): Path to the exports directory.
+            - exports_directory (Path): Path to the exports' directory.
             - data_directory (Path): Path to the data directory.
     """
 
@@ -120,7 +120,7 @@ def prepare_data():
     if data_directory.exists():
         keep_previous_data = input("Do you want to keep the previous data? (1)Yes/(ENTER)No: ")
         if keep_previous_data.lower() != "yes" and keep_previous_data != "1":
-            shutil.rmtree(data_directory)
+            shutil.rmtree(data_directory, ignore_errors=True)
             shutil.copytree(import_directory, data_directory)
     else:
         shutil.copytree(import_directory, data_directory)
@@ -142,22 +142,32 @@ def data_index_finder(file_path):
     Returns:
         int: The row index where the data starts.
     """
-    index_max = 40
+    index_max = 50
     current_index = 0
     # Read one row, without assuming any row is a header
-    df = pd.read_csv(file_path, low_memory=False, header=None, on_bad_lines="warn")
+    df = pd.read_csv(file_path, low_memory=False, header=None, on_bad_lines="skip")
+    if df.shape[1] == 2:
+        print(f"Warning: File {file_path} has only two columns. Trying to correct...")
 
-    print(file_path)
+        # You can choose to return early here, assuming data starts at the second row,
+        # or handle it differently depending on your use case.
+        return 1
     try:
         while current_index < min(index_max, len(df)):
             # Check if the DataFrame is empty
             if df.empty:
-                print(f"Warning: No data found at skiprows={current_index}.")
+                print(f"Warning: No data found at skip rows={current_index}.")
                 current_index += 1
                 continue
-            first_row = df.iloc[current_index]
-            print(f"Checking row {current_index}: {first_row.values}")  # Debug print
-            if first_row.str.contains("#DATA|question_number", case=False, na=False).any():
+            first_cell = df.iloc[current_index, 0]
+
+            # If the first cell contains specific markers, determine the start of data
+            if pd.isna(first_cell):
+                # Handle the case where the first cell is NaN (empty)
+                current_index += 1
+                continue
+
+            if first_cell == "#DATA" or first_cell == "sona_id":
                 return current_index + 1
 
             current_index += 1
@@ -223,11 +233,11 @@ def parse_user_selection(user_selection, header_list):
             indices.append(int(item))
     return [header_list[i] for i in sorted(set(indices)) if 0 <= i < len(header_list)]
 
-def gather_data(exports):
+def gather_data(export_dir):
     """
     Gathers and processes data from sensor directories and organizes the results.
     Args:
-        exports (Path): The path to the exports directory where results will be saved.
+        export_dir (Path): The path to the exports directory where results will be saved.
     Returns:
         Path: The path to the results directory where processed data is saved.
     """
@@ -235,20 +245,18 @@ def gather_data(exports):
         new_path.mkdir(parents=True, exist_ok=True)
         return new_path
     
-    results_directory = create_new_directory(exports / 'Results')
+    results_dir = create_new_directory(export_dir / 'Results')
     
     # Dictionary to store start indices for each sensor
     data_start_indices = {}
-    data_directory = exports / "Data"
+    data_directory = export_dir / "Data"
     for sensor_directory in data_directory.iterdir():
-        sensor_results_dir = create_new_directory(results_directory / sensor_directory.name)
+        sensor_results_dir = create_new_directory(results_dir / sensor_directory.name)
         keep_columns = column_selection(sensor_directory.name)
         
         # Call data_index_finder once for the current sensor and store the result
         sensor_files = list(sensor_directory.iterdir())
         data_index = data_index_finder(sensor_files[0])  # Assuming sensor_directory is a Path
-        print(sensor_files[0])
-        print(data_index)
         data_start_indices[sensor_directory.name] = data_index  # Store the index
         
         for file in sensor_files:
@@ -257,15 +265,13 @@ def gather_data(exports):
             else:
                 print(f"Skipping file {file} due to invalid data index.")
     
-    return results_directory
+    return results_dir
 
-import pandas as pd
-from pathlib import Path
-
-def process_file(file_path, output_path, keep_columns, data_index):
+def process_file(file_path, output_path, keep_columns, data_index, retry=True):
     """
     Processes a single file by reading the relevant columns and saving the cleaned data.
     Args:
+        retry: retries the process_file function once to see if it can find the correct index
         file_path (Path): The path to the input file to be processed.
         output_path (Path): The path where the processed file will be saved.
         keep_columns (list): A list of columns to keep from the input file.
@@ -276,17 +282,44 @@ def process_file(file_path, output_path, keep_columns, data_index):
     try:
         # Read the body of the data
         dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, low_memory=False)
-        print(dataframe_body.head())
-        dataframe_body = dataframe_body[keep_columns]  # Keep only the specified columns
+
+        # Handle case when the DataFrame has only two columns
+        if dataframe_body.shape[1] == 2:
+            print(f"Warning: Detected only two columns in {file_path}. Attempting to process all data.")
+            if retry:
+                # Retry with a new data index (this could be an automatic fix if needed)
+                new_data_index = data_index_finder(file_path)
+                return process_file(file_path, output_path, keep_columns, new_data_index, retry=False)
+            else:
+                # If retry fails, just process all columns and issue a warning
+                existing_columns = dataframe_body.columns.tolist()
+                print(f"Processing all available columns: {existing_columns}")
+
+        existing_columns = [col for col in keep_columns if col in dataframe_body.columns]
+        if not existing_columns:
+            if retry:
+                new_data_index = data_index_finder(file_path)
+                return process_file(file_path, output_path, keep_columns, new_data_index, retry=False)
+            else:
+                existing_columns = dataframe_body.columns.tolist()
+                print(f"Warning: None of the keep_columns are found in {file_path}. Processing all columns.")
+                print(f'Header Row Used: {existing_columns}')
+                print(f'-' * 40)
+
+        dataframe_body = dataframe_body[existing_columns]  # Keep only the specified columns
+        print(file_path)
+        print(data_index)
 
         # Read the header part of the data
         dataframe_header = pd.read_csv(file_path, nrows=data_index, header=None)
 
-        # Adjust the header to match the number of columns in the data body
-        header_columns = dataframe_body.columns.to_list()
-        dataframe_header = dataframe_header.iloc[:, :len(header_columns)]  # Trim or extend to match
+        # Ensure the number of columns match before assigning the column names
+        if len(dataframe_header.columns) != len(dataframe_body.columns):
+            print(f"Warning: Header columns and body columns do not match in {file_path}")
+            dataframe_header = dataframe_header.iloc[:, :len(dataframe_body.columns)]  # Trim to match
 
         # Rename the columns in dataframe_header to match the data columns
+        header_columns = dataframe_body.columns.to_list()
         dataframe_header.columns = header_columns
 
         # Concatenate header and body
@@ -295,11 +328,14 @@ def process_file(file_path, output_path, keep_columns, data_index):
         # Save the processed data
         final_dataframe.to_csv(output_path, index=False)
 
-    except ValueError as error:
+    except KeyError as ke:
+        print(ke)
+        new_data_index = data_index_finder(file_path)
+        print(new_data_index)
+        return process_file(file_path, output_path, keep_columns, new_data_index+1)
+    except Exception as e:
         # Print results for verification
-        print(dataframe_body.head())
-        print(dataframe_header.head(), "\n--------------")
-        print(f"Error processing file {file_path}: {error}")
+        print(f"Error processing file {file_path}: {e}")
 
 
 if __name__ == '__main__':
