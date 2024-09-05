@@ -97,8 +97,8 @@ def get_export_directory():
 def rename_files(sensor_directory, sensor_type):
     for file_path in sensor_directory.iterdir():
         file_name_parts = file_path.stem.split('_')
-        new_file_name = f"Survey_{file_name_parts[0]}.csv" if file_name_parts[
-            -1].isalpha() else f"{sensor_type[0]}_{file_name_parts[-1]}"
+        new_file_name = f"Survey_{file_name_parts[0]}.csv" if file_name_parts[-1].isalpha() \
+            else f"{sensor_type[0]}_{file_name_parts[-1]}.csv"
         file_path.rename(sensor_directory / new_file_name)
 
 
@@ -110,7 +110,7 @@ def prepare_data():
 
     if data_directory.exists():
         if input("Keep previous data? (yes/no): ").lower() != "yes":
-            shutil.rmtree(data_directory)
+            shutil.rmtree(data_directory, ignore_errors=True)
     shutil.copytree(import_directory, data_directory)
 
     for sensor_dir in data_directory.iterdir():
@@ -118,7 +118,7 @@ def prepare_data():
             if any(sensor.lower() in sensor_dir.name.lower() for sensor in sensor_names):
                 sensor_path = data_directory / sensor_type
                 sensor_dir.rename(sensor_path)
-                rename_files(sensor_dir, sensor_type)
+                rename_files(sensor_path, sensor_type)
 
     return export_directory
 
@@ -178,7 +178,8 @@ def process_file(file_path, output_path, keep_columns, data_index, retry=True):
 
 # Gather and process data files
 def gather_data(export_dir):
-    results_dir = (export_dir / "Results").mkdir(parents=True, exist_ok=True)
+    results_dir = Path(export_dir/ "Results")
+    results_dir.mkdir(parents=True, exist_ok=True)
     for sensor_dir in (export_dir / "Data").iterdir():
         keep_columns = column_selection(sensor_dir.name)
         for file in sensor_dir.iterdir():
