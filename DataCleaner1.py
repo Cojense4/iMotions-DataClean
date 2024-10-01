@@ -1,5 +1,4 @@
-import os
-import sys
+from tqdm import tqdm
 import shutil
 import pandas as pd
 from pathlib import Path
@@ -71,7 +70,7 @@ def prepare_data():
 
     return exports_directory, data_directory
 
-def find_data_dir(directory, depth=0, max_depth=2):
+def find_data_dir(directory, depth=0, max_depth=3):
     """
     Recursively searches for directories with 'data' or 'results' in their names.
 
@@ -85,14 +84,14 @@ def find_data_dir(directory, depth=0, max_depth=2):
     """
     matching_directories = []
 
-    if depth > max_depth:
+    if depth > max_depth or 'onedrive' in directory.name.lower() or 'exports' in directory.name.lower():
         return matching_directories
 
-    for sub_directory in [path for path in Path(directory).iterdir() if path.is_dir() and have_dir_access(path)]:
-        matching_directories.extend(find_data_dir(sub_directory, depth + 1, max_depth))
-
-    if 'data' in directory.name.lower() or 'results' in directory.name.lower():
+    if 'results' in directory.name.lower():
         matching_directories.append(directory)
+
+    for sub_directory in [path for path in Path(directory).iterdir() if path.is_dir() and have_dir_access(path)]:
+        matching_directories.extend(find_data_dir(sub_directory, depth + 1))
 
     return matching_directories
         
@@ -204,7 +203,7 @@ def rename_file(file_path, sensor_type):
     if name_split[-1].isalpha():
         new_name = f"FBL_{name_split[0]}{ext}"
     else:
-        new_name = f"{sensor_type[0]}_{name_split[-1]}{ext}"
+        new_name = f"{sensor_type[:3].upper()}_{name_split[-1]}{ext}"
     file_path.rename(file_path.parent / new_name)
 
 def data_index_finder(file_path):
@@ -232,10 +231,7 @@ def data_index_finder(file_path):
             # Check the first cell data
             first_cell_data = df.iloc[current_index, 0]
             if first_cell_data == "#DATA" or first_cell_data == "question_number":
-                print(first_cell_data, "\n")
-                print(df.iloc[current_index], "\n")
-                print(df.head(), "\n")
-                print(file_path, "\n")
+
                 return current_index + 2
             
             current_index += 1
@@ -312,6 +308,7 @@ def gather_data(exports_directory, data_directory):
     results_directory = create_new_directory(exports_directory / 'Results')
     
     # Dictionary to store start indices for each sensor
+    # Dictionary to store start indices for each sensor
     data_start_indices = {}
     
     for sensor_directory in data_directory.iterdir():
@@ -323,15 +320,18 @@ def gather_data(exports_directory, data_directory):
         data_index = data_index_finder(sensor_directory / sensor_files[0].name)  # Assuming sensor_directory is a Path
         data_start_indices[sensor_directory.name] = data_index  # Store the index
         
-        for file in sensor_files:
+        for file in tqdm(sensor_files, desc=f"Processing Files in {sensor_directory.name}"):
+            output_path = sensor_results_dir / file.name
             if data_index is not None:  # Ensure data_index is valid before processing
                 process_file(file, sensor_results_dir / file.name, keep_columns, data_index)
             else:
+                failed_output_path = output_path.parent / f'{file.name}'
+                shutil.copy(file, failed_output_path)
                 print(f"Skipping file {file} due to invalid data index.")
     
     return results_directory
 
-def process_file(file_path, output_path, keep_columns, data_index):
+def process_file(file_path, output_path, keep_columns, data_index, retry=True):
     """
     Processes a single file by reading the relevant columns and saving the cleaned data.
     Args:
@@ -343,11 +343,8 @@ def process_file(file_path, output_path, keep_columns, data_index):
         ValueError: If there's an issue processing the file (e.g., invalid column indices).
     """
     try:
-        dataframe_header = pd.read_csv(file_path, skiprows=data_index, nrows=1)
         dataframe_info = pd.read_csv(file_path, nrows=data_index, header=data_index)
         dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, usecols=keep_columns, low_memory=False)
-        print(dataframe_info,"\n")
-        print(dataframe_body)
         pd.concat([dataframe_info, dataframe_body],axis=0).to_csv(output_path, index=False)
     except ValueError as error:
         print(f"Error processing file {file_path}: {error}")
