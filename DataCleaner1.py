@@ -248,7 +248,6 @@ def data_index_finder(file_path):
         print(f"Error processing file {file_path}: {pe}\n")
         return None
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
         return None
 
 def column_selection(sensor_name):
@@ -308,7 +307,6 @@ def gather_data(exports_directory, data_directory):
     results_directory = create_new_directory(exports_directory / 'Results')
     
     # Dictionary to store start indices for each sensor
-    # Dictionary to store start indices for each sensor
     data_start_indices = {}
     
     for sensor_directory in data_directory.iterdir():
@@ -327,11 +325,10 @@ def gather_data(exports_directory, data_directory):
             else:
                 failed_output_path = output_path.parent / f'{file.name}'
                 shutil.copy(file, failed_output_path)
-                print(f"Skipping file {file} due to invalid data index.")
-    
+
     return results_directory
 
-def process_file(file_path, output_path, keep_columns, data_index, retry=True):
+def process_file(file_path, output_path, keep_columns, data_index=0, retry=False):
     """
     Processes a single file by reading the relevant columns and saving the cleaned data.
     Args:
@@ -342,12 +339,18 @@ def process_file(file_path, output_path, keep_columns, data_index, retry=True):
     Raises:
         ValueError: If there's an issue processing the file (e.g., invalid column indices).
     """
+    if retry:
+        data_index = data_index_finder(file_path)
+        available_columns = pd.read_csv(file_path, skiprows=data_index, nrows=0).columns.tolist()
+        keep_columns = [col for col in keep_columns if col in available_columns]
+        print(keep_columns)
     try:
         dataframe_info = pd.read_csv(file_path, nrows=data_index, header=data_index)
-        dataframe_body = pd.read_csv(file_path, skiprows=data_index, header=0, usecols=keep_columns, low_memory=False)
-        pd.concat([dataframe_info, dataframe_body],axis=0).to_csv(output_path, index=False)
+        pd.read_csv(file_path, skiprows=data_index, header=0, usecols=keep_columns, low_memory=False).to_csv(output_path, index=False)
     except ValueError as error:
-        print(f"Error processing file {file_path}: {error}")
+        if not retry: process_file(file_path, output_path, keep_columns, retry=True)
+        else: print(f"Error: {error}")
+
 if __name__ == '__main__':
     exports_directory, data_directory = prepare_data()
     print(gather_data(exports_directory, data_directory))
